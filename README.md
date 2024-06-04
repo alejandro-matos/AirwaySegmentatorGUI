@@ -8,6 +8,6 @@
 
 If you use DentalSegmentator for your work, please cite our paper and nnU-Net:
 
-> Matos Camarillo A, Capenakas-Gianoni S, Punithakumar K. AirwaySegmentor: A deep learning-based Nasopharyngeal airway segmentation method. Published online Month day, 2024:2024.xx.xx.xxxxxxxx. doi:10.1101/2024.xx.xx.xxxxxxxx
+> Matos Camarillo A, Capenakas-Gianoni S, Punithakumar K. AirwaySegmentor: A deep learning-based method for Nasopharyngeal airway segmentation. Published online Month day, 2024:2024.xx.xx.xxxxxxxx. doi:10.1101/2024.xx.xx.xxxxxxxx
 
 > Isensee F, Jaeger PF, Kohl SAA, Petersen J, Maier-Hein KH. nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. Nat Methods. 2021;18(2):203-211. doi:10.1038/s41592-020-01008-z
