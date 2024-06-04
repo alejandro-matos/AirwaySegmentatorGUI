@@ -1,5 +1,6 @@
-#nnUNet GUI: A User-Friendly Tool for Airway Segmentation
- 
+# nnUNet GUI: A User-Friendly Tool for Airway Segmentation
+ ![image](https://github.com/alejandro-matos/nnUNetGUI/assets/84166343/8105744f-90c7-446a-afa7-ee675da37db2)
+
  This Graphical User Interface (GUI) provides a streamlined workflow for converting medical imaging data and generating 3D models of the upper airway. With just a few clicks, you can: 
  1. **Convert DICOM to NIfTI**: Easily transform your DICOM images into the NIfTI file format, a common standard for medical image analysis.
  2. **Automatic Airway Segmentation**: Leverage the power of the "AirwaySegmentor" neural network model, trained using the nnUNet framework, to automatically segment the upper airway from your CBCT scans.
