@@ -17,22 +17,21 @@ class nnUNetGUI4(tk.Frame):
         self.home_callback = home_callback
         self.configure(bg=styles.BG_COLOR)
 
-        self.Path0 = Path(self.resource_path("Airways"))
-        self.Path1 = Path(self.resource_path("Airways/nnUNet_raw"))
-        self.Path2 = Path(self.resource_path("Airways/nnUNet_results"))
-        self.Path3 = Path(self.resource_path("Airways/nnUNet_preprocessed"))
+        # Get the current working directory and go one level up
+        # In this case, it is /Alejandro
+        self.parent_dir = os.path.dirname(os.getcwd())
+        # Construct the path to the target folder and create path
+        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw'))
+        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results'))
+        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed'))
 
         self.create_widgets()
 
-    def resource_path(self, relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
-        base_path = getattr(sys, '_MEIPASS', Path(__file__).parent)
-        return (base_path / relative_path).as_posix()
-
     def setup_paths(self, task_no):
         """Constructs paths for input and output directories based on the task number."""
-        nnUNet_IN = Path(self.Path0) / "nnUNet_raw_data_base" / "nnUNet_raw_data" / task_no / "imagesTs"
-        nnUNet_OUT = Path(self.Path0) / "nnUNet_raw_data_base" / "nnUNet_raw_data" / task_no / "imagesOut"
+        # task_no is in the format of Dataset###_Label
+        nnUNet_IN = Path(self.Path1) / task_no / 'imagesTs'
+        nnUNet_OUT = Path(self.Path1) / task_no / 'imagesOut'
         return nnUNet_IN.as_posix(), nnUNet_OUT.as_posix()
 
     def open_folder(self, path):
@@ -51,64 +50,55 @@ class nnUNetGUI4(tk.Frame):
 
     def run_script(self, task_no):
         if not task_no:
-            messagebox.showwarning("Warning", "Task Number field cannot be empty!")
+            messagebox.showwarning('Warning', 'Task Number field cannot be empty!')
             return
 
         loading = tk.Toplevel(self.parent)  # Use parent to create Toplevel window
-        loading.title("Processing")
+        loading.title('Processing')
         loading.configure(bg=styles.BG_COLOR)
 
         label_font = (styles.FONT_FAMILY, 20)
-        tk.Label(loading, text="Prediction for " + task_no + " is running, please wait...", font=label_font, bg=styles.BG_COLOR, fg="white").pack(pady=100, padx=100)
+        tk.Label(loading, text=f'Prediction for {task_no} is running, please wait...', font=label_font, bg=styles.BG_COLOR, fg='white').pack(pady=100, padx=100)
         loading.grab_set()
 
         def script_execution():
             nnUNet_IN, nnUNet_OUT = self.setup_paths(task_no)
             
-            # Construct the user profile path
-            user_profile_path = Path(os.path.expanduser('~'))
+            # Ensure paths are in Unix format
+            self.Path1 = self.Path1.as_posix()
+            self.Path2 = self.Path2.as_posix()
+            self.Path3 = self.Path3.as_posix()
 
-            # If you need to convert to string, handle OS differences
-            if platform.system() == "Windows":
-                user_profile_path_str = user_profile_path.as_posix()
-            else:
-                user_profile_path_str = str(user_profile_path)
+            # Debugging print statements
+            print('nnUNet_IN:', nnUNet_IN)
+            print('nnUNet_OUT:', nnUNet_OUT)
+            print('Path1:', self.Path1)
+            print('Path2:', self.Path2)
+            print('Path3:', self.Path3)
+
+            # Set environment variables
+            os.environ['nnUNet_raw'] = self.Path1
+            os.environ['nnUNet_results'] = self.Path2
+            os.environ['nnUNet_preprocessed'] = self.Path3
+
             try:
-
-                nnUNet_IN = nnUNet_IN
-                nnUNet_OUT = nnUNet_OUT
-                # Ensure paths are in Unix format
-                self.Path1 = self.Path1.as_posix()
-                self.Path2 = self.Path2.as_posix()
-                self.Path3 = self.Path3.as_posix()
-
-                print(nnUNet_IN,self.Path1)
-
-                # Set environment variables
-                # --- Example for Windows----
-                # os.environ["nnUNet_raw"] = "C:/Users/alejandromatos/Desktop/Alejandro/Airways_v2/nnUNet_raw"
-                # os.environ["nnUNet_results"] = "C:/Users/alejandromatos/Desktop/Alejandro/Airways_v2/nnUNet_results"
-                # os.environ["nnUNet_preprocessed"] = "C:/Users/alejandromatos/Desktop/Alejandro/Airways_v2/nnUNet_preprocessed"
-                #----- Setting paths programatically -----
-                os.environ["nnUNet_raw_data_base"] = self.Path1
-                os.environ["RESULTS_FOLDER"] = self.Path2
-                os.environ["nnUNet_preprocessed"] = self.Path3
-
                 # Run nnUNet_predict command
                 result = subprocess.run([
                     'nnUNetv2_predict', '-i', nnUNet_IN, '-o', nnUNet_OUT,
                     '-d', '13', '-c', '3d_fullres',
                 ], capture_output=True, text=True)
+                
+                # Print the output for debugging
+                print('stdout:', result.stdout)
+                print('stderr:', result.stderr)
 
+                result.check_returncode()  # This will raise CalledProcessError if the return code is non-zero
 
-                if result.returncode != 0:
-                    raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=result.stderr)
-
-                messagebox.showinfo("Notification", f"The prediction for {task_no} has been completed!")
+                messagebox.showinfo('Notification', f'The prediction for {task_no} has been completed!')
             except subprocess.CalledProcessError as e:
-                messagebox.showerror("Error", f"Failed to run the nnUNet prediction: {e.stderr}")
-            finally:
-                loading.destroy()
+                print(f"Error: {e.stderr}")
+                messagebox.showerror("Error", f"Failed to run nnUNet prediction: {e.stderr}")
+
 
         threading.Thread(target=script_execution).start()
 
