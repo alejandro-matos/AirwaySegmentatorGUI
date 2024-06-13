@@ -119,22 +119,22 @@ class nnUNetGUI4(tk.Frame):
 
         text_widget = tk.Text(self, wrap='word', height=22, width=100, bg=styles.BG_COLOR, fg="white", font=(styles.FONT_FAMILY, 12), pady=10)
         text_widget.insert(tk.END, "Welcome to the nnUNet GUI\n\n"
-                           "- Ensure your images are in NIfTI format.\n"
-                           "- If your images are in DICOM format, use the DICOM to NIfTI Converter module.\n"
-                           "- CBCT files should be named as \"{Case Identifier}_0000\".\n"
-                           "    - The Case Identifier uniquely identifies each file.\n"
-                           "    - Use descriptive names and number files sequentially, e.g., Airways_1_0000, Airways_2_0000.\n"
-                           "- For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
+                           "    - Ensure your images are in NIfTI format.\n"
+                           "    - If your images are in DICOM format, use the DICOM to NIfTI Converter module.\n"
+                           "    - CBCT files should be named as \"{Case Identifier}_0000\".\n"
+                           "      - The Case Identifier uniquely identifies each file.\n"
+                           "      - Use descriptive names and number files sequentially, e.g., Airways_1_0000, Airways_2_0000.\n"
+                           "    - For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
                            
                            "Steps to start automatic segmentation:\n"
-                           "- Input a unique Task Number in the format \"TaskXXX_Identifier\".\n"
-                           "    - XXX is any 3-digit number, e.g., Task123_ProjectX.\n"
-                           "- Click 'Open/Create IN Folder' and copy your CBCT files into the folder.\n"
-                           "- Click 'Run nnUNet' to start segmentation.\n"
-                           "- Wait for the notification that segmentation is complete.\n"
-                           "    - Estimated time: 12 minutes per CBCT.\n"
-                           "- Notification: \"The prediction for 'Your Task Number' has been completed!\"\n"
-                           "- Click 'Go to OUT Folder (Results)' to see the segmented files.\n"
+                           "    - Input a unique Task Number in the format \"TaskXXX_Identifier\".\n"
+                           "       - XXX is any 3-digit number, e.g., Task123_ProjectX.\n"
+                           "    - Click 'Open/Create IN Folder' and copy your CBCT files into the folder.\n"
+                           "    - Click 'Run nnUNet' to start segmentation.\n"
+                           "    - Wait for the notification that segmentation is complete.\n"
+                           "       - Estimated time: 12 minutes per CBCT.\n"
+                           "    - Notification: \"The prediction for 'Your Task Number' has been completed!\"\n"
+                           "    - Click 'Go to OUT Folder (Results)' to see the segmented files.\n"
                            "*For more information, visit the nnUNet GitHub page.*"
                           )
         text_widget.tag_configure("bold", font=(styles.FONT_FAMILY, 18, 'bold'))
@@ -146,7 +146,7 @@ class nnUNetGUI4(tk.Frame):
         text_widget.tag_add("bold2", "12.62", "12.end")
 
         text_widget.configure(state='disabled')  
-        text_widget.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+        text_widget.grid(row=1, column=0, columnspan=2, padx=20, pady=10)
         text_widget.tag_add("center", "1.0", "1.end") 
         text_widget.tag_add("center", "10.0", "10.end") 
         text_widget.tag_add("center", "19.0", "19.end") 
