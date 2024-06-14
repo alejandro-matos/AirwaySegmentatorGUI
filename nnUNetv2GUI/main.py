@@ -5,9 +5,10 @@ import tkinter as tk
 from tkinter import ttk
 from DtoN_GUI import AnonDtoNGUI
 from nnUNetGUI_woShell import nnUNetGUI4
+from DCM2STLv2 import AirwaySegmenterGUI
 from STLConvGUI import STLConverterGUI
 from PIL import Image, ImageTk
-from styles import configure_styles, BG_COLOR, FONT_FAMILY, WINDOW_HEIGHT,WINDOW_WIDTH
+from styles import configure_styles, BG_COLOR, FONT_FAMILY, WINDOW_HEIGHT, WINDOW_WIDTH
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -66,6 +67,7 @@ class MainGUI(tk.Tk):
             nnunet_image_path = os.path.join(base_dir, "Images", "nnunet_icon2.png")
             anon_image_path = os.path.join(base_dir, "Images", "D2NConv2.png")
             stl_image_path = os.path.join(base_dir, "Images", "stl_icon2.png")
+            D2S_image_path = os.path.join(base_dir, "Images", "DCM2STL.png")
 
             image_size = 200
 
@@ -80,17 +82,23 @@ class MainGUI(tk.Tk):
             stl_image = Image.open(stl_image_path)
             stl_image = stl_image.resize((image_size, image_size), Image.ANTIALIAS)
             self.stl_photo = ImageTk.PhotoImage(stl_image)
+
+            D2S_image = Image.open(D2S_image_path)
+            D2S_image = D2S_image.resize((image_size, image_size), Image.ANTIALIAS)
+            self.D2S_photo = ImageTk.PhotoImage(D2S_image)
+
         except Exception as e:
             print(f"Error loading images: {e}")
             self.nnunet_photo = None
             self.anon_photo = None
             self.stl_photo = None
+            self.D2S_photo = None
 
-    def create_button(self, parent, text, command, column, image):
+    def create_button(self, parent, text, command, row, column, image):
         button = ttk.Button(parent, text=text, command=command, style="ButtonStyle.TButton")
-        button.grid(row=1, column=column, padx=20)
+        button.grid(row=row, column=column, padx=20, pady=10)
         label = ttk.Label(parent, image=image, style="ButtonLabel.TLabel")
-        label.grid(row=0, column=column, padx=20)
+        label.grid(row=row-1, column=column, padx=20)
 
     def show_home_page(self):
         for widget in self.main_frame.winfo_children():
@@ -108,13 +116,16 @@ class MainGUI(tk.Tk):
         self.load_images()
 
         # AnonDtoN GUI button with image
-        self.create_button(button_frame, "DICOM to NIfTI Converter", self.launch_anon_dton_gui, 0, self.anon_photo)
+        self.create_button(button_frame, "DICOM to NIfTI Converter", self.launch_anon_dton_gui, 1, 0, self.anon_photo)
 
         # nnUNet GUI button with image
-        self.create_button(button_frame, "Airway Prediction", self.launch_nnunet_gui, 1, self.nnunet_photo)
+        self.create_button(button_frame, "Airway Prediction", self.launch_nnunet_gui, 1, 1, self.nnunet_photo)
 
         # NIfTI to STL button with image
-        self.create_button(button_frame, "NIfTI to STL Converter", self.launch_stl_converter_gui, 2, self.stl_photo)
+        self.create_button(button_frame, "NIfTI segmentation to STL Converter", self.launch_stl_converter_gui, 1, 2, self.stl_photo)
+
+        # DICOM to STL button with image
+        self.create_button(button_frame, "DICOM to STL Converter", self.launch_anon_dton_gui, 3, 1, self.D2S_photo)
 
         self.update_idletasks()  # Update idle tasks to make sure the window size is adjusted
         self.geometry('')  # Set the window size to fit the content
@@ -134,6 +145,9 @@ class MainGUI(tk.Tk):
 
     def launch_stl_converter_gui(self):
         self.switch_frame(STLConverterGUI)
+
+    def launch_D2S_converter_gui(self):
+        self.switch_frame(AirwaySegmenterGUI)
 
 if __name__ == "__main__":
     app = MainGUI()
