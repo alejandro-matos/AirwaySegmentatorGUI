@@ -71,10 +71,10 @@ class AirwaySegmenterGUI(tk.Frame):
 
             image_size = 30
 
-            checked_icon = Image.open(checked_icon_path).resize((image_size, image_size), Image.ANTIALIAS)
+            checked_icon = Image.open(checked_icon_path).resize((image_size, image_size), Image.LANCZOS)
             self.checked_icon = ImageTk.PhotoImage(checked_icon)
 
-            unchecked_icon = Image.open(unchecked_icon_path).resize((image_size, image_size), Image.ANTIALIAS)
+            unchecked_icon = Image.open(unchecked_icon_path).resize((image_size, image_size), Image.LANCZOS)
             self.unchecked_icon = ImageTk.PhotoImage(unchecked_icon)
 
         except Exception as e:
@@ -153,13 +153,17 @@ class AirwaySegmenterGUI(tk.Frame):
                     base_name, ext2 = os.path.splitext(base_name)
                     if rename_files:
                         new_name = f"{data_nick}_{patient_index}{suffix}{ext2}{ext}"
+                        stl_name = f"{data_nick}_{patient_index}"
                     else:
                         new_name = f"{patient_folder}{suffix}{ext2}{ext}"
+                        stl_name = f"{patient_folder}"
                 else:
                     if rename_files:
                         new_name = f"{data_nick}_{patient_index}{suffix}{ext}"
+                        stl_name = f"{data_nick}_{patient_index}"
                     else:
                         new_name = f"{patient_folder}{suffix}{ext}"
+                        stl_name = f"{patient_folder}"
 
                 new_path = os.path.join(central_nifti_folder, new_name)
                 if not os.path.exists(new_path):
@@ -167,9 +171,7 @@ class AirwaySegmenterGUI(tk.Frame):
                     os.rename(os.path.join(central_nifti_folder, nifti_file), new_path)
 
         self.segment_airway(central_nifti_folder, output_dir)
-        self.convert_niftis_to_stl()
-
-        messagebox.showinfo("Process Complete", "The selected operations have been completed.")
+        self.convert_niftis_to_stl(output_dir,stl_name)
 
 
     def segment_airway(self, nifti_folder, output_dir):
@@ -208,15 +210,11 @@ class AirwaySegmenterGUI(tk.Frame):
 
         surface_mesh.save(stl_file)
 
-    def convert_niftis_to_stl(self):
-        input_path_str = self.input_path.get()
-        output_path_str = os.path.join(self.output_path.get(), "STL")
+    def convert_niftis_to_stl(self,output_dir,stl_name):
+        input_path_str = os.path.join(output_dir, "Segmentation")
+        output_path_str = os.path.join(output_dir, "STL")
         os.makedirs(output_path_str, exist_ok=True)
-        
-        if not input_path_str:
-            messagebox.showwarning("Input Error", "Please select an input directory.")
-            return
-
+                
         nifti_files = [f for f in os.listdir(input_path_str) if f.endswith('.nii') or f.endswith('.nii.gz')]
         if not nifti_files:
             messagebox.showwarning("Input Error", "No NIfTI files found in the selected input directory.")
@@ -224,10 +222,11 @@ class AirwaySegmenterGUI(tk.Frame):
 
         for nifti_file in nifti_files:
             nifti_file_path = os.path.join(input_path_str, nifti_file)
-            stl_file_path = os.path.join(output_path_str, f"{os.path.splitext(nifti_file)[0]}.stl")
+            stl_file_path = os.path.join(output_path_str, f"{stl_name}.stl")
             self.nifti_to_stl(nifti_file_path, stl_file_path)
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
+
 
     def toggle_rename_fields(self):
         if self.rename_files.get():
