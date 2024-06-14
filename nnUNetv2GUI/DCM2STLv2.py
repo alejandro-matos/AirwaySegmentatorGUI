@@ -268,7 +268,7 @@ class AirwaySegmenterGUI(tk.Frame):
         label_style = {'bg': styles.BG_COLOR, 'fg': 'white', 'font': (styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')}
         label_grid = {'sticky': tk.W, 'padx': 10, 'pady': (15, 10)}
         button_style1 = {'font': (styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2), 'padx': 10, 'pady': 0}
-        button_style2 = {'bg': '#2196F3', 'fg': 'white', 'font': (styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), 'padx': 20, 'pady': 10}
+        button_style2 = {'bg': '#2196F3', 'fg': 'white', 'font': (styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), 'padx': 20, 'pady': 5}
 
         roww = 2
 
@@ -290,13 +290,13 @@ class AirwaySegmenterGUI(tk.Frame):
         input_label = tk.Label(self, text="Select Folder:", **label_style)
         input_label.grid(row=roww + 1, column=0, **label_grid)
         input_entry = tk.Entry(self, textvariable=self.input_path, width=65)
-        input_entry.grid(row=roww + 1, column=0, columnspan=2, sticky="W", padx=(80, 0))
+        input_entry.grid(row=roww + 1, column=0, columnspan=2, sticky="W", padx=(130, 0))
 
         input_button = tk.Button(self, text="Browse", command=self.browse_input_path, **button_style1)
-        input_button.grid(row=roww + 1, column=2, sticky="W", padx=(10, 15))
+        input_button.grid(row=roww + 1, column=2, sticky="W", padx=(0, 10))
 
         open_button = tk.Button(self, text="Open Results Folder", command=self.open_folder, **button_style1)
-        open_button.grid(row=roww+4, column=2, sticky="E", padx=(0, 10))
+        open_button.grid(row=roww+1, column=2, sticky="E", padx=(0, 10))
 
         convert_button = tk.Button(self, text="Start", command=self.convert_files, **button_style2)
 
