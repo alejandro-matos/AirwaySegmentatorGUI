@@ -3,8 +3,8 @@ import sys
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
-from DtoN_GUI import AnonDtoNGUI
-from nnUNetGUI_woShell import nnUNetGUI4
+from D2N_GUI import AnonDtoNGUI
+from nnUNetGUIv2 import nnUNetGUI4
 from DCM2STLv2 import AirwaySegmenterGUI
 from STLConvGUI import STLConverterGUI
 from PIL import Image, ImageTk
@@ -72,19 +72,19 @@ class MainGUI(tk.Tk):
             image_size = 200
 
             nnunet_image = Image.open(nnunet_image_path)
-            nnunet_image = nnunet_image.resize((image_size, image_size), Image.ANTIALIAS)
+            nnunet_image = nnunet_image.resize((image_size, image_size), Image.LANCZOS)
             self.nnunet_photo = ImageTk.PhotoImage(nnunet_image)
 
             anon_image = Image.open(anon_image_path)
-            anon_image = anon_image.resize((image_size, image_size), Image.ANTIALIAS)
+            anon_image = anon_image.resize((image_size, image_size), Image.LANCZOS)
             self.anon_photo = ImageTk.PhotoImage(anon_image)
 
             stl_image = Image.open(stl_image_path)
-            stl_image = stl_image.resize((image_size, image_size), Image.ANTIALIAS)
+            stl_image = stl_image.resize((image_size, image_size), Image.LANCZOS)
             self.stl_photo = ImageTk.PhotoImage(stl_image)
 
             D2S_image = Image.open(D2S_image_path)
-            D2S_image = D2S_image.resize((image_size, image_size), Image.ANTIALIAS)
+            D2S_image = D2S_image.resize((image_size, image_size), Image.LANCZOS)
             self.D2S_photo = ImageTk.PhotoImage(D2S_image)
 
         except Exception as e:
@@ -125,7 +125,7 @@ class MainGUI(tk.Tk):
         self.create_button(button_frame, "NIfTI segmentation to STL Converter", self.launch_stl_converter_gui, 1, 2, self.stl_photo)
 
         # DICOM to STL button with image
-        self.create_button(button_frame, "DICOM to STL Converter", self.launch_anon_dton_gui, 3, 1, self.D2S_photo)
+        self.create_button(button_frame, "DICOM to STL Converter", self.launch_D2S_converter_gui, 3, 1, self.D2S_photo)
 
         self.update_idletasks()  # Update idle tasks to make sure the window size is adjusted
         self.geometry('')  # Set the window size to fit the content
