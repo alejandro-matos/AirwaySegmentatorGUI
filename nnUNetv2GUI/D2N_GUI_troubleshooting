@@ -54,7 +54,7 @@ class AnonDtoNGUI(tk.Frame):
             checked_icon_path = os.path.join(base_dir, "Images", "checked.png")
             unchecked_icon_path = os.path.join(base_dir, "Images", "unchecked.png")
 
-            image_size = 30
+            image_size = 20
 
             checked_icon = Image.open(checked_icon_path).resize((image_size, image_size), Image.LANCZOS)
             self.checked_icon = ImageTk.PhotoImage(checked_icon)
@@ -222,7 +222,17 @@ class AnonDtoNGUI(tk.Frame):
         else:
             self.nick_label_entry.config(state=tk.DISABLED)
             self.start_number_entry.config(state=tk.DISABLED)
-            
+
+    def toggle_suffix_field(self):
+        if self.convert_to_nifti.get():
+            self.segmentation_toggle.grid()
+            self.segmentation_label.grid()
+            self.placeholder.grid_remove()
+        else:
+            self.segmentation_toggle.grid_remove()
+            self.segmentation_label.grid_remove()
+            self.placeholder.grid(row=3, column=2, sticky="EW", padx=(20, 0))
+
     def create_widgets(self):
         home_button = tk.Button(self, text="Home", command=self.home_callback, bg='#FF9800', fg='white',
                                 font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), padx=styles.BUTTON_PADDING, pady=styles.BUTTON_PADDING)
@@ -232,7 +242,7 @@ class AnonDtoNGUI(tk.Frame):
         text_widget.insert(tk.END, """File Converter Module\n
         This module processes DICOM images by anonymizing them, converting them to NIfTI format,
         and renaming the files to meet the algorithm's naming convention for proper identification.
-                   
+                
         Instructions:
         - Use the toggle buttons to select tasks:
                 - Anonymize: Removes personal information and numbers anonymized files starting 
@@ -245,7 +255,7 @@ class AnonDtoNGUI(tk.Frame):
         - Make sure that the folder contains only the DICOM files to be anonymized and/or converted.
         - Click 'Start' to begin processing the selected tasks.
         - Once done, click 'Open Folder' to access the processed images and renaming key in the newly 
-          created folder called "{Folder Name}_Processed_Images".""")
+        created folder called "{Folder Name}_Processed_Images".""")
         text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=(10, 20))
         text_widget.tag_configure("bold", font=(styles.FONT_FAMILY, 18, 'bold'))
         text_widget.tag_configure("center", justify='center')
@@ -261,36 +271,40 @@ class AnonDtoNGUI(tk.Frame):
 
         task_label = tk.Label(self, text="Select tasks to perform:", **label_style_title).grid(row=roww, columnspan=3, **label_grid)
 
-        anonymize_label = tk.Label(self, text="Anonymize", **label_style)
+        anonymize_label = tk.Label(self, text="Anonymize CBCTs", **label_style)
         anonymize_label.grid(row=roww+1, column=0, sticky="EW", padx=(20, 0))
         anonymize_toggle = CustomCheckButton(self, variable=self.anonymize, on_image=self.checked_icon, off_image=self.unchecked_icon)
         anonymize_toggle.grid(row=roww+2, column=0, sticky="EW", padx=(20, 0))
 
         convert_label = tk.Label(self, text="Convert to NIfTI", **label_style)
         convert_label.grid(row=roww+1, column=1, sticky="EW", padx=(20, 0))
-        convert_toggle = CustomCheckButton(self, variable=self.convert_to_nifti, on_image=self.checked_icon, off_image=self.unchecked_icon)
+        convert_toggle = CustomCheckButton(self, variable=self.convert_to_nifti, on_image=self.checked_icon, off_image=self.unchecked_icon, command=self.toggle_suffix_field)
         convert_toggle.grid(row=roww+2, column=1, sticky="EW", padx=(20, 0))
 
-        segmentation_label = tk.Label(self, text="Add suffix for nnUNet segmentation", **label_style)
-        segmentation_label.grid(row=roww+1, column=2, sticky="EW", padx=(20, 0))
-        segmentation_toggle = CustomCheckButton(self, variable=self.prepare_for_segmentation, on_image=self.checked_icon, off_image=self.unchecked_icon)
-        segmentation_toggle.grid(row=roww+2, column=2, sticky="EW", padx=(20, 0))
+        self.segmentation_label = tk.Label(self, text="Add suffix for nnUNet segmentation", **label_style)
+        self.segmentation_label.grid(row=roww+1, column=2, sticky="EW", padx=(20, 0))
+        self.segmentation_toggle = CustomCheckButton(self, variable=self.prepare_for_segmentation, on_image=self.checked_icon, off_image=self.unchecked_icon)
+        self.segmentation_toggle.grid(row=roww+2, column=2, sticky="EW", padx=(20, 0))
+
+        # Placeholder to maintain grid spacing
+        self.placeholder = tk.Label(self, text="Add suffix for nnUNet segmentation", bg= styles.BG_COLOR, fg= 'gray', font= (styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        self.placeholder.grid(row=roww+1, column=2, sticky="EW", padx=(20, 0))
 
         # Add option asking whether to rename files or not
         rename_label = tk.Label(self, text="Rename files?", **label_style)
-        rename_label.grid(row=roww+3, column=0, sticky="W", padx=(0, 20), pady=(10,5))
+        rename_label.grid(row=roww+3, column=0, **label_grid)
         rename_toggle = CustomCheckButton(self, variable=self.rename_files, on_image=self.checked_icon, off_image=self.unchecked_icon, command=self.toggle_rename_fields)
-        rename_toggle.grid(row=roww+3, column=0, sticky="E", padx=10, pady=(10, 5))
+        rename_toggle.grid(row=roww+3, column=0, sticky="E", padx=(0,20), pady=(10, 5))
 
         # Name given to files
         nick_label = tk.Label(self, text="Name to be applied to files:", **label_style).grid(row=roww+3, column=1, **label_grid)
         self.nick_label_entry = tk.Entry(self, textvariable=self.data_nickname, width=15)
-        self.nick_label_entry.grid(row=roww+3, column=1, sticky="E", padx=(0, 20), pady=(10, 5))
+        self.nick_label_entry.grid(row=roww+3, column=1, sticky="E", padx=(0, 5), pady=(10, 5))
 
         # Starting number for anonymized files
         start_number_label = tk.Label(self, text="Starting number:", **label_style).grid(row=roww+3, column=2, sticky='W', padx=(10, 5), pady=(10, 5))
         self.start_number_entry = tk.Entry(self, textvariable=self.starting_number, width=10)
-        self.start_number_entry.grid(row=roww+3, column=2, sticky="E", padx=(10, 110), pady=(10, 5))
+        self.start_number_entry.grid(row=roww+3, column=2, sticky="E", padx=(10, 100), pady=(10, 5))
 
         input_label = tk.Label(self, text="Select Folder:", **label_style).grid(row=roww+4, column=0, **label_grid)
         input_entry = tk.Entry(self, textvariable=self.input_path, width=50)
@@ -303,12 +317,13 @@ class AnonDtoNGUI(tk.Frame):
         open_button.grid(row=roww+4, column=2, sticky="E", padx=(0, 80))
 
         convert_button = tk.Button(self, text="Start", command=self.convert_files, bg='#2196F3', fg='white',
-                                   font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE),  # Increase font size
-                                   padx=20, pady=10)  # Increase padding
+                                font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE),  # Increase font size
+                                padx=20, pady=10)  # Increase padding
         convert_button.grid(row=roww+5, column=0, columnspan=3, padx=(100, 0), pady=(10, 20))
 
         # Initially disable the name and starting number fields
         self.toggle_rename_fields()
+        self.toggle_suffix_field()
 
 if __name__ == "__main__":
     root = tk.Tk()
