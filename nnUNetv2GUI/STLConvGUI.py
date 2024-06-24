@@ -50,6 +50,10 @@ class STLConverterGUI(tk.Frame):
         # Load the NIfTI file
         img = nib.load(nifti_file)
         img_data = img.get_fdata()
+        hdr = img.header
+
+        # Get voxel sizes from the NIfTI header
+        voxel_sizes = hdr.get_zooms()
 
         # Ensure the data is binary
         img_data = img_data.astype(np.uint8)
@@ -58,15 +62,25 @@ class STLConverterGUI(tk.Frame):
         # Perform marching cubes to extract the surface mesh
         verts, faces, _, _ = measure.marching_cubes(img_data, level=0)
 
+        # Scale the vertices by the voxel sizes
+        verts = verts * np.array(voxel_sizes)
+
+        # Apply the affine transformation to position the mesh correctly
+        affine = img.affine
+        verts_homogeneous = np.c_[verts, np.ones(len(verts))]  # Convert to homogeneous coordinates
+        verts_transformed = verts_homogeneous.dot(affine.T)[:, :3]  # Apply the affine transformation
+
         # Create a new mesh object
         surface_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
 
         for i, f in enumerate(faces):
             for j in range(3):
-                surface_mesh.vectors[i][j] = verts[f[j], :]
+                surface_mesh.vectors[i][j] = verts_transformed[f[j], :]
 
         # Save the mesh as an STL file
         surface_mesh.save(stl_file)
+
+
 
     def convert_files(self):
         input_path_str = self.input_path.get()
