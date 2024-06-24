@@ -59,8 +59,6 @@ class nnUNetGUI4(tk.Frame):
                         print(f"Renaming NIfTI file {nifti_file} to {new_name}")
                         os.rename(os.path.join(patient_folder_path, nifti_file), new_path)
 
-        messagebox.showinfo("Process Complete", "The selected operations have been completed.")
-
     def open_folder(self, path):
         path = os.path.expanduser(path)
         if not os.path.exists(path):
@@ -104,7 +102,7 @@ class nnUNetGUI4(tk.Frame):
             os.environ['nnUNet_results'] = self.Path2
             os.environ['nnUNet_preprocessed'] = self.Path3
 
-            # Call suffix_files to ensure correct file naming
+            # Call suffix_files module to ensure correct file naming
             self.suffix_files(nnUNet_IN, nnUNet_OUT)
 
             try:
