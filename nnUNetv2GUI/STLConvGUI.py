@@ -81,7 +81,6 @@ class STLConverterGUI(tk.Frame):
         surface_mesh.save(stl_file)
 
 
-
     def convert_files(self):
         input_path_str = self.input_path.get()
         output_path_str = self.output_path.get()
