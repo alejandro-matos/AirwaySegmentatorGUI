@@ -29,22 +29,37 @@ class nnUNetGUI4(tk.Frame):
 
         self.create_widgets()
     
-    def browse_input_path(self):
-        selected_path = filedialog.askdirectory()
-        if selected_path:
-            self.input_path.set(selected_path)
-            print(f"Input path set to: {selected_path}")
-
-    def browse_output_path(self):
-        selected_path = filedialog.askdirectory()
-        if selected_path:
-            self.output_path.set(selected_path)
-            print(f"Output path set to: {selected_path}")
-
     def setup_paths(self):
         nnUNet_IN = self.input_path.get()
         nnUNet_OUT = self.output_path.get()
         return nnUNet_IN, nnUNet_OUT
+    
+    def suffix_files(self, nnUNet_IN, nnUNet_OUT):
+        if not nnUNet_IN and nnUNet_OUT:
+            messagebox.showwarning("Input Error", "Please select the input and output directories.")
+            return
+
+        patient_folders = [f for f in os.listdir(nnUNet_IN) if os.path.isfile(os.path.join(nnUNet_IN, f))]
+        print(f"These are the patient folders: {patient_folders}")
+        for patient_folder in patient_folders:
+            patient_folder_path = os.path.join(nnUNet_IN, patient_folder)
+            
+            nifti_files = [f for f in os.listdir(patient_folder_path) if f.endswith('.nii') or f.endswith('.nii.gz')]
+            for nifti_file in nifti_files:
+                base_name, ext = os.path.splitext(nifti_file)
+
+                if ext == ".gz":
+                    base_name, ext2 = os.path.splitext(base_name)
+                    ext = ext2 + ext
+
+                if not base_name.endswith('_0000'):
+                    new_name = f"{base_name}_0000{ext}"
+                    new_path = os.path.join(patient_folder_path, new_name)
+                    if not os.path.exists(new_path):
+                        print(f"Renaming NIfTI file {nifti_file} to {new_name}")
+                        os.rename(os.path.join(patient_folder_path, nifti_file), new_path)
+
+        messagebox.showinfo("Process Complete", "The selected operations have been completed.")
 
     def open_folder(self, path):
         path = os.path.expanduser(path)
@@ -61,7 +76,6 @@ class nnUNetGUI4(tk.Frame):
             messagebox.showerror("Error", f"Failed to open the directory: {str(e)}")
 
     def run_script(self):
-        
         loading = tk.Toplevel(self.parent)  # Use parent to create Toplevel window
         loading.title('Processing')
         loading.configure(bg=styles.BG_COLOR)
@@ -89,6 +103,9 @@ class nnUNetGUI4(tk.Frame):
             os.environ['nnUNet_raw'] = self.Path1
             os.environ['nnUNet_results'] = self.Path2
             os.environ['nnUNet_preprocessed'] = self.Path3
+
+            # Call suffix_files to ensure correct file naming
+            self.suffix_files(nnUNet_IN, nnUNet_OUT)
 
             try:
                 # Run nnUNet_predict command
@@ -172,12 +189,12 @@ class nnUNetGUI4(tk.Frame):
         roww = 1
         
         # Input folder
-        tk.Label(self, text="CBCT folder:", **label_style).grid(row=roww+1, column=0, sticky="E", padx=10, pady = (10, 5))
+        tk.Label(self, text="Original CBCT folder:", **label_style).grid(row=roww+1, column=0, sticky="E", padx=10, pady = (10, 5))
         tk.Entry(self, textvariable=self.input_path, width=60).grid(row=roww+1, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+1, column=1, sticky="E", padx=(10, 20))
 
         # Output folder
-        tk.Label(self, text="Prediction folder:", **label_style).grid(row=roww+2, column=0, sticky="E", padx=10, pady = (10, 5))
+        tk.Label(self, text="Predictions folder:", **label_style).grid(row=roww+2, column=0, sticky="E", padx=10, pady = (10, 5))
         tk.Entry(self, textvariable=self.output_path, width=60).grid(row=roww+2, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+2, column=1, sticky="E", padx=(10, 20))
 

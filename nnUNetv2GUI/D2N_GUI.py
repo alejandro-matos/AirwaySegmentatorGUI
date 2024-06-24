@@ -140,7 +140,7 @@ class AnonDtoNGUI(tk.Frame):
 
         patient_folders = [f for f in os.listdir(input_path_str) if os.path.isdir(os.path.join(input_path_str, f))]
         start_number = self.starting_number.get()
-        print(f"This is the output of patient_folders: {patient_folders}")
+        print(f"These are the patient folders: {patient_folders}")
         for patient_index, patient_folder in enumerate(patient_folders, start=start_number):
             print(f"Processing patient folder: {patient_folder} with index {patient_index}")
             patient_folder_path = os.path.join(input_path_str, patient_folder)
