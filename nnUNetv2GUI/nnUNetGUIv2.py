@@ -20,14 +20,25 @@ class nnUNetGUI4(tk.Frame):
         # Get the current working directory and go one level up
         # In this case, it is /Alejandro
         self.parent_dir = os.path.dirname(os.getcwd())
+        self.parent_dir2 = os.path.dirname(self.parent_dir)
         # Construct the path to the target folder and create path
-        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw'))
-        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results'))
-        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed'))
+        self.Path1 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_raw')).as_posix()
+        self.Path2 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_results')).as_posix()
+        self.Path3 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_preprocessed')).as_posix()
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
 
         self.create_widgets()
+    
+    def browse_input_path(self):
+        selected_path = filedialog.askdirectory()
+        if selected_path:
+            self.input_path.set(selected_path)
+
+    def browse_output_path(self):
+        selected_path = filedialog.askdirectory()
+        if selected_path:
+            self.output_path.set(selected_path)
     
     def setup_paths(self):
         nnUNet_IN = self.input_path.get()
@@ -39,25 +50,21 @@ class nnUNetGUI4(tk.Frame):
             messagebox.showwarning("Input Error", "Please select the input and output directories.")
             return
 
-        patient_folders = [f for f in os.listdir(nnUNet_IN) if os.path.isfile(os.path.join(nnUNet_IN, f))]
-        print(f"These are the patient folders: {patient_folders}")
-        for patient_folder in patient_folders:
-            patient_folder_path = os.path.join(nnUNet_IN, patient_folder)
-            
-            nifti_files = [f for f in os.listdir(patient_folder_path) if f.endswith('.nii') or f.endswith('.nii.gz')]
-            for nifti_file in nifti_files:
-                base_name, ext = os.path.splitext(nifti_file)
+        nifti_files = [f for f in os.listdir(nnUNet_IN) if f.endswith('.nii') or f.endswith('.nii.gz')]
+        print(f"These are the patient files: {nifti_files}")            
+        for nifti_file in nifti_files:
+            base_name, ext = os.path.splitext(nifti_file)
 
-                if ext == ".gz":
-                    base_name, ext2 = os.path.splitext(base_name)
-                    ext = ext2 + ext
+            if ext == ".gz":
+                base_name, ext2 = os.path.splitext(base_name)
+                ext = ext2 + ext
 
-                if not base_name.endswith('_0000'):
-                    new_name = f"{base_name}_0000{ext}"
-                    new_path = os.path.join(patient_folder_path, new_name)
-                    if not os.path.exists(new_path):
-                        print(f"Renaming NIfTI file {nifti_file} to {new_name}")
-                        os.rename(os.path.join(patient_folder_path, nifti_file), new_path)
+            if not base_name.endswith('_0000'):
+                new_name = f"{base_name}_0000{ext}"
+                new_path = os.path.join(nnUNet_IN, new_name)
+                if not os.path.exists(new_path):
+                    print(f"Renaming NIfTI file {nifti_file} to {new_name}")
+                    os.rename(os.path.join(nnUNet_IN, nifti_file), new_path)
 
     def open_folder(self, path):
         path = os.path.expanduser(path)
@@ -84,11 +91,6 @@ class nnUNetGUI4(tk.Frame):
 
         def script_execution():
             nnUNet_IN, nnUNet_OUT = self.setup_paths()
-            
-            # Ensure paths are in Unix format
-            self.Path1 = self.Path1.as_posix()
-            self.Path2 = self.Path2.as_posix()
-            self.Path3 = self.Path3.as_posix()
 
             # Debugging print statements
             print('nnUNet_IN:', nnUNet_IN)
