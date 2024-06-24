@@ -53,15 +53,16 @@ class AirwaySegmenterGUI(tk.Frame):
 
     def setup_paths(self):
         self.parent_dir = os.path.dirname(os.getcwd())
-        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw'))
-        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results'))
-        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed'))
+        self.parent_dir2 = os.path.dirname(self.parent_dir)
+        # Construct the path to the target folder and create path
+        self.Path1 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_raw')).as_posix()
+        self.Path2 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_results')).as_posix()
+        self.Path3 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_preprocessed')).as_posix()
 
     def browse_input_path(self):
         selected_path = filedialog.askdirectory()
         if selected_path:
             self.input_path.set(selected_path)
-            print(f"Input path set to: {selected_path}")
 
     def load_icons(self):
         try:
@@ -88,7 +89,7 @@ class AirwaySegmenterGUI(tk.Frame):
         processed_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
         if processed_dir:
             if not os.path.isdir(processed_dir):
-                messagebox.showwarning("Directory Error", f"The directory {processed_dir} does not exist. Please ensure that the correct folder is selected and/or that it has been processed.")
+                messagebox.showwarning("Directory Error", f"The directory {processed_dir} does not exist. Please ensure that the correct DICOM folder is selected and/or check that DICOM files have been  processed.")
             else:
                 print(f"Opening folder: {processed_dir}")
                 if sys.platform == "win32":
@@ -121,6 +122,8 @@ class AirwaySegmenterGUI(tk.Frame):
 
         patient_folders = [f for f in os.listdir(input_path_str) if os.path.isdir(os.path.join(input_path_str, f))]
         start_number = self.starting_number.get()
+        nifti_filenames = []  # List to keep track of NIfTI filenames
+
         print(f"This is the output of patient_folders: {patient_folders}")
         for patient_index, patient_folder in enumerate(patient_folders, start=start_number):
             print(f"Processing patient folder: {patient_folder} with index {patient_index}")
@@ -153,34 +156,29 @@ class AirwaySegmenterGUI(tk.Frame):
                     base_name, ext2 = os.path.splitext(base_name)
                     if rename_files:
                         new_name = f"{data_nick}_{patient_index}{suffix}{ext2}{ext}"
-                        stl_name = f"{data_nick}_{patient_index}"
                     else:
                         new_name = f"{patient_folder}{suffix}{ext2}{ext}"
-                        stl_name = f"{patient_folder}"
-                else:
-                    if rename_files:
-                        new_name = f"{data_nick}_{patient_index}{suffix}{ext}"
-                        stl_name = f"{data_nick}_{patient_index}"
-                    else:
-                        new_name = f"{patient_folder}{suffix}{ext}"
-                        stl_name = f"{patient_folder}"
 
                 new_path = os.path.join(central_nifti_folder, new_name)
                 if not os.path.exists(new_path):
                     print(f"Renaming NIfTI file {nifti_file} to {new_name}")
                     os.rename(os.path.join(central_nifti_folder, nifti_file), new_path)
+                
+                nifti_filenames.append(new_name.replace('_0000.nii.gz', ''))  # Add the new NIfTI filename to the list and remove the suffix from name because the segmentation has no suffix
 
+        # Pass the list of NIfTI filenames to the convert_niftis_to_stl function
         self.segment_airway(central_nifti_folder, output_dir)
-        self.convert_niftis_to_stl(output_dir,stl_name)
+        self.convert_niftis_to_stl(output_dir, nifti_filenames)
 
 
     def segment_airway(self, nifti_folder, output_dir):
         print(f"Segmenting airway using nnUNet on data in {nifti_folder}")
 
         try:
-            os.environ['nnUNet_raw'] = self.Path1.as_posix()
-            os.environ['nnUNet_results'] = self.Path2.as_posix()
-            os.environ['nnUNet_preprocessed'] = self.Path3.as_posix()
+            # Set environment variables
+            os.environ['nnUNet_raw'] = self.Path1
+            os.environ['nnUNet_results'] = self.Path2
+            os.environ['nnUNet_preprocessed'] = self.Path3
 
             result = subprocess.run([
                 'nnUNetv2_predict', '-i', nifti_folder, '-o', os.path.join(output_dir, "Segmentation"),
@@ -190,7 +188,6 @@ class AirwaySegmenterGUI(tk.Frame):
             if result.returncode != 0:
                 raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=result.stderr)
 
-            messagebox.showinfo("Notification", f"The segmentation has been completed!")
         except subprocess.CalledProcessError as e:
             messagebox.showerror("Error", f"Failed to run the nnUNet prediction: {e.stderr}")
 
@@ -210,19 +207,18 @@ class AirwaySegmenterGUI(tk.Frame):
 
         surface_mesh.save(stl_file)
 
-    def convert_niftis_to_stl(self,output_dir,stl_name):
+    def convert_niftis_to_stl(self, output_dir, nifti_filenames):
         input_path_str = os.path.join(output_dir, "Segmentation")
         output_path_str = os.path.join(output_dir, "STL")
         os.makedirs(output_path_str, exist_ok=True)
                 
-        nifti_files = [f for f in os.listdir(input_path_str) if f.endswith('.nii') or f.endswith('.nii.gz')]
-        if not nifti_files:
+        if not nifti_filenames:
             messagebox.showwarning("Input Error", "No NIfTI files found in the selected input directory.")
             return
 
-        for nifti_file in nifti_files:
-            nifti_file_path = os.path.join(input_path_str, nifti_file)
-            stl_file_path = os.path.join(output_path_str, f"{stl_name}.stl")
+        for nifti_file in nifti_filenames:
+            nifti_file_path = os.path.join(input_path_str, f"{nifti_file}{'.nii.gz'}")
+            stl_file_path = os.path.join(output_path_str, f"{nifti_file}{'.stl'}")
             self.nifti_to_stl(nifti_file_path, stl_file_path)
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
