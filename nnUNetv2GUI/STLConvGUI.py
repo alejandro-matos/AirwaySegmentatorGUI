@@ -9,6 +9,7 @@ from PIL import Image, ImageTk
 from pathlib import Path
 import sys
 import styles  # Import the styles module
+import trimesh
 
 class STLConverterGUI(tk.Frame):
     def __init__(self, parent, home_callback):
@@ -47,39 +48,40 @@ class STLConverterGUI(tk.Frame):
                 os.system(f"xdg-open {output_path_str}")
 
     def nifti_to_stl(self, nifti_file, stl_file):
-        # Load the NIfTI file
-        img = nib.load(nifti_file)
-        img_data = img.get_fdata()
-        hdr = img.header
+        try:
+            # Load NIfTI file
+            nifti_image = nib.load(nifti_file)
+            nifti_data = nifti_image.get_fdata()
+            
+            # Get the affine transformation matrix
+            affine = nifti_image.affine
+            
+            # Separate the rotation/scaling and translation components
+            rotation_scaling = affine[:3, :3]
+            translation = affine[:3, 3]
+            
+            # Apply marching cubes algorithm to get the mesh
+            verts, faces, _, _ = measure.marching_cubes(nifti_data, level=0.45)
+            
+            # Apply rotation and scaling
+            transformed_verts = verts.dot(rotation_scaling)
+            
+            # Apply translation
+            transformed_verts += translation
+            
+            # Convert from RAS+ to LPS+ (if necessary)
+            # This transformation flips the x (Right to Left) and y (Anterior to Posterior) coordinates
+            transformed_verts[:, 0] = -transformed_verts[:, 0]  # Flip x
+            transformed_verts[:, 1] = -transformed_verts[:, 1]  # Flip y
+            
+            # Create a mesh
+            mesh = trimesh.Trimesh(vertices=transformed_verts, faces=faces)
+            
+            # Export to STL file
+            mesh.export(stl_file)
 
-        # Get voxel sizes from the NIfTI header
-        voxel_sizes = hdr.get_zooms()
-
-        # Ensure the data is binary
-        img_data = img_data.astype(np.uint8)
-        img_data[img_data > 0] = 1
-
-        # Perform marching cubes to extract the surface mesh
-        verts, faces, _, _ = measure.marching_cubes(img_data, level=0)
-
-        # Scale the vertices by the voxel sizes
-        verts = verts * np.array(voxel_sizes)
-
-        # Apply the affine transformation to position the mesh correctly
-        affine = img.affine
-        verts_homogeneous = np.c_[verts, np.ones(len(verts))]  # Convert to homogeneous coordinates
-        verts_transformed = verts_homogeneous.dot(affine.T)[:, :3]  # Apply the affine transformation
-
-        # Create a new mesh object
-        surface_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
-
-        for i, f in enumerate(faces):
-            for j in range(3):
-                surface_mesh.vectors[i][j] = verts_transformed[f[j], :]
-
-        # Save the mesh as an STL file
-        surface_mesh.save(stl_file)
-
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file} to STL. Error: {e}")
 
     def convert_files(self):
         input_path_str = self.input_path.get()
