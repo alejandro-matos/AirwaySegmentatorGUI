@@ -91,6 +91,11 @@ class nnUNetGUI4(tk.Frame):
 
         def script_execution():
             nnUNet_IN, nnUNet_OUT = self.setup_paths()
+            # Check if the input and output paths are empty
+            if not nnUNet_IN or not nnUNet_OUT:
+                messagebox.showerror("Error", "Path to NIfTI and/or Predictions folder(s) not selected/valid")
+                loading.destroy()  # Close the loading window
+                return
 
             # Debugging print statements
             print('nnUNet_IN:', nnUNet_IN)
@@ -113,7 +118,7 @@ class nnUNetGUI4(tk.Frame):
                     'nnUNetv2_predict', '-i', nnUNet_IN, '-o', nnUNet_OUT,
                     '-d', '13', '-c', '3d_fullres',
                 ], capture_output=True, text=True)
-                
+
                 # Print the output for debugging
                 print('stdout:', result.stdout)
                 print('stderr:', result.stderr)
@@ -124,6 +129,11 @@ class nnUNetGUI4(tk.Frame):
             except subprocess.CalledProcessError as e:
                 print(f"Error: {e.stderr}")
                 messagebox.showerror("Error", f"Failed to run nnUNet prediction: {e.stderr}")
+            except Exception as e:
+                print(f"Unexpected error: {str(e)}")
+                messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
+                loading.destroy()  # Close the loading window
+                return
 
         threading.Thread(target=script_execution).start()
 
@@ -190,12 +200,12 @@ class nnUNetGUI4(tk.Frame):
         
         # Input folder
         tk.Label(self, text="Original CBCT folder:", **label_style).grid(row=roww+1, column=0, sticky="E", padx=10, pady = (10, 5))
-        tk.Entry(self, textvariable=self.input_path, width=60).grid(row=roww+1, column=1, sticky="W")
+        tk.Entry(self, textvariable=self.input_path, width=54).grid(row=roww+1, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+1, column=1, sticky="E", padx=(10, 20))
 
         # Output folder
         tk.Label(self, text="Predictions folder:", **label_style).grid(row=roww+2, column=0, sticky="E", padx=10, pady = (10, 5))
-        tk.Entry(self, textvariable=self.output_path, width=60).grid(row=roww+2, column=1, sticky="W")
+        tk.Entry(self, textvariable=self.output_path, width=54).grid(row=roww+2, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+2, column=1, sticky="E", padx=(10, 20))
 
         tk.Button(self, text="Open CBCT Folder", command=lambda: self.open_folder(self.input_path.get()), bg='#BA562E', fg='white', width=20).grid(row=roww+1, column=2, sticky="W", padx=(0), pady=5)
