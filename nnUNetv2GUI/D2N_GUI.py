@@ -88,7 +88,7 @@ class AnonDtoNGUI(tk.Frame):
     def open_folder(self):
         input_path_str = self.input_path.get()
         parent_directory = os.path.dirname(input_path_str)
-        processed_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
+        processed_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed")
         if processed_dir:
             if not os.path.isdir(processed_dir):
                 messagebox.showwarning("Directory Error", f"The directory {processed_dir} does not exist. Please ensure that the correct folder is selected and/or that it has been processed.")
@@ -136,7 +136,7 @@ class AnonDtoNGUI(tk.Frame):
 
         # File to store the mapping of original and anonymized folder names
         if rename_files:
-            mapping_file_path = os.path.join(output_dir, "folder_mapping.txt")
+            mapping_file_path = os.path.join(output_dir, "naming_key.txt")
             with open(mapping_file_path, "w") as mapping_file:
                 mapping_file.write("Original Folder\tAnonymized Folder\n")
 
@@ -233,33 +233,34 @@ class AnonDtoNGUI(tk.Frame):
             self.segmentation_label.grid_remove()
             self.placeholder.grid(row=3, column=2, sticky="EW", padx=(20, 0))
 
-    def create_widgets(self):
-        home_button = tk.Button(self, text="Home", command=self.home_callback, bg='#FF9800', fg='white',
+    def create_widgets(self): # tk change to Home later
+        home_button = tk.Button(self, text="Close Application", command=self.home_callback, bg='#FF9800', fg='white',
                                 font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), padx=styles.BUTTON_PADDING, pady=styles.BUTTON_PADDING)
-        home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="W")
+        # home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="W") # tk also change with home
+        home_button.grid(row=0, column=2, padx=(10, 20), pady=(10, 20), sticky="E")
 
-        text_widget = tk.Text(self, wrap='word', height=18, width=86, bg=styles.BG_COLOR, fg='white', font=(styles.FONT_FAMILY, 13))
+        text_widget = tk.Text(self, wrap='word', height=19, width=86, bg=styles.BG_COLOR, fg='white', font=(styles.FONT_FAMILY, 13))
         text_widget.insert(tk.END, """File Converter Module\n
-        This module processes DICOM images by anonymizing them, converting them to NIfTI format,
-        and renaming the files to meet the algorithm's naming convention for proper identification.
-                
-        Instructions:
         - Use the toggle buttons to select tasks:
-                - Anonymize: Removes personal information and numbers anonymized files starting 
-                    from the specified number in the "Starting number" line. A .txt file containing the 
-                    naming key relating the original and anonymized files is also created in this step.
+                - Anonymize: Removes personal information from DICOM metadata. 
                 - Convert to NIfTI: Converts DICOM files to NIfTI (.nii.gz) format.
-                - Add Suffix for Segmentation: Adds '_0000' to the file names for segmentation use.
-        - Click 'Browse' to select the folder containing the files.
-        - Input the starting number for numbering the anonymized files.
+                - Add Suffix for nnUNet Segmentation: Adds '_0000' to the file names for segmentation use.  
+                - Rename Files:
+                        - Click the toggle button to rename files.
+                        - Enter a new name or use the default "Airways."
+                        - Files will be consecutively numbered starting from the specified "Starting number".
+                        - A .txt file with the naming key relating original and new file names will be created.
+        - Select the folder containing the CBCT files by clicking on 'Browse', navigating to the folder and 
+          clicking 'Select 'Folder'
         - Make sure that the folder contains only the DICOM files to be anonymized and/or converted.
         - Click 'Start' to begin processing the selected tasks.
-        - Once done, click 'Open Folder' to access the processed images and renaming key in the newly 
-        created folder called "{Folder Name}_Processed_Images".""")
+        - Once done, click on 'Open Folder' to access the processed images and renaming key in the newly 
+          created folder called "{Selected Folder Name}_Processed".""")
         text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=(10, 20))
         text_widget.tag_configure("bold", font=(styles.FONT_FAMILY, 18, 'bold'))
         text_widget.tag_configure("center", justify='center')
         text_widget.tag_add("bold", "1.0", "1.end")
+        # text_widget.tag_add("bold", "8.0", "8.end")
         text_widget.tag_add("center", "1.0", "1.end")
         text_widget.configure(state='disabled')
 
@@ -271,7 +272,7 @@ class AnonDtoNGUI(tk.Frame):
 
         task_label = tk.Label(self, text="Select tasks to perform:", **label_style_title).grid(row=roww, columnspan=3, **label_grid)
 
-        anonymize_label = tk.Label(self, text="Anonymize CBCTs", **label_style)
+        anonymize_label = tk.Label(self, text="Anonymize DICOMs", **label_style)
         anonymize_label.grid(row=roww+1, column=0, sticky="EW", padx=(20, 0))
         anonymize_toggle = CustomCheckButton(self, variable=self.anonymize, on_image=self.checked_icon, off_image=self.unchecked_icon)
         anonymize_toggle.grid(row=roww+2, column=0, sticky="EW", padx=(20, 0))
@@ -297,7 +298,7 @@ class AnonDtoNGUI(tk.Frame):
         rename_toggle.grid(row=roww+3, column=0, sticky="E", padx=(0,20), pady=(10, 5))
 
         # Name given to files
-        nick_label = tk.Label(self, text="Name to be applied to files:", **label_style).grid(row=roww+3, column=1, **label_grid)
+        nick_label = tk.Label(self, text="New file name:", **label_style).grid(row=roww+3, column=1, **label_grid)
         self.nick_label_entry = tk.Entry(self, textvariable=self.data_nickname, width=15)
         self.nick_label_entry.grid(row=roww+3, column=1, sticky="E", padx=(0, 5), pady=(10, 5))
 
