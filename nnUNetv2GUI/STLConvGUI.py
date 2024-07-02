@@ -98,7 +98,10 @@ class STLConverterGUI(tk.Frame):
 
         for nifti_file in nifti_files:
             nifti_file_path = os.path.join(input_path_str, nifti_file)
-            stl_file_path = os.path.join(output_path_str, f"{os.path.splitext(nifti_file)[0]}.stl")
+            base_name = os.path.splitext(os.path.splitext(nifti_file)[0])[0]
+            stl_file_path = os.path.join(output_path_str, f"{base_name}.stl")
+            print (f"The base name is {base_name}")
+            print (f"The stl_file_path is {stl_file_path}")
             self.nifti_to_stl(nifti_file_path, stl_file_path)
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
