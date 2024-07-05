@@ -55,9 +55,9 @@ class AirwaySegmenterGUI(tk.Frame):
         self.parent_dir = os.path.dirname(os.getcwd())
         self.parent_dir2 = os.path.dirname(self.parent_dir)
         # Construct the path to the target folder and create path
-        self.Path1 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_raw')).as_posix()
-        self.Path2 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_results')).as_posix()
-        self.Path3 = Path(os.path.join(self.parent_dir2, 'Airways_v2', 'nnUNet_preprocessed')).as_posix()
+        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw')).as_posix()
+        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results')).as_posix()
+        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed')).as_posix()
 
     def browse_input_path(self):
         selected_path = filedialog.askdirectory()
