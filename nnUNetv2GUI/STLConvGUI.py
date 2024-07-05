@@ -9,7 +9,6 @@ from PIL import Image, ImageTk
 from pathlib import Path
 import sys
 import styles  # Import the styles module
-import trimesh
 import vtk
 
 class STLConverterGUI(tk.Frame):
@@ -88,12 +87,14 @@ class STLConverterGUI(tk.Frame):
             # Load the NIfTI file using nibabel to get the affine matrix
             nifti_image = nib.load(nifti_file_path)
             affine_matrix = nifti_image.affine
+
+            print(affine_matrix)
             
             # Create the transformation matrix
             transform = vtk.vtkTransform()
             
             # Apply the rotation (180 degrees around the Z-axis)
-            transform.RotateZ(180)
+            # transform.RotateZ(180)
             
             # Apply the translation (shift down using the affine matrix)
             translation = affine_matrix[:3, 3]
