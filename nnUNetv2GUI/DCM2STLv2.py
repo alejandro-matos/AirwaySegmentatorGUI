@@ -12,6 +12,7 @@ import nibabel as nib
 from skimage import measure
 from stl import mesh
 import styles
+import vtk
 
 class CustomCheckButton(tk.Label):
     def __init__(self, parent, variable, on_image, off_image, command=None, *args, **kwargs):
