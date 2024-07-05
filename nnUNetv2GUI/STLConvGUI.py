@@ -9,6 +9,8 @@ from PIL import Image, ImageTk
 from pathlib import Path
 import sys
 import styles  # Import the styles module
+import trimesh
+import vtk
 
 class STLConverterGUI(tk.Frame):
     def __init__(self, parent, home_callback):
@@ -46,27 +48,79 @@ class STLConverterGUI(tk.Frame):
             else:
                 os.system(f"xdg-open {output_path_str}")
 
-    def nifti_to_stl(self, nifti_file, stl_file):
-        # Load the NIfTI file
-        img = nib.load(nifti_file)
-        img_data = img.get_fdata()
+    def nifti_to_stl(self,nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
+        try:
+            # Load NIfTI file
+            reader = vtk.vtkNIFTIImageReader()
+            reader.SetFileName(nifti_file_path)
+            reader.Update()
+            
+            # Apply vtkDiscreteFlyingEdges3D
+            discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
+            discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
+            discrete_flying_edges.SetValue(0, threshold_value)  # Set the threshold value
+            discrete_flying_edges.Update()
+            
+            # Output from vtkDiscreteFlyingEdges3D
+            output_polydata = discrete_flying_edges.GetOutput()
 
-        # Ensure the data is binary
-        img_data = img_data.astype(np.uint8)
-        img_data[img_data > 0] = 1
+            # Apply vtkDecimatePro for decimation (optional)
+            if decimate:
+                decimator = vtk.vtkDecimatePro()
+                decimator.SetInputData(output_polydata)
+                decimator.SetTargetReduction(decimate_target_reduction)  # Reduce to target percentage
+                decimator.PreserveTopologyOn()
+                decimator.Update()
+                output_polydata = decimator.GetOutput()
+            # else:
+            #     output_polydata = smoothed_polydata1
 
-        # Perform marching cubes to extract the surface mesh
-        verts, faces, _, _ = measure.marching_cubes(img_data, level=0)
+            # Apply smoothing filter to reduce segmentation artifacts
+            smoothing_filter = vtk.vtkSmoothPolyDataFilter()
+            smoothing_filter.SetInputData(output_polydata)
+            smoothing_filter.SetNumberOfIterations(5)
+            smoothing_filter.SetRelaxationFactor(0.05)
+            smoothing_filter.FeatureEdgeSmoothingOff()
+            smoothing_filter.BoundarySmoothingOn()
+            smoothing_filter.Update()
+            output_polydata2 = smoothing_filter.GetOutput()
 
-        # Create a new mesh object
-        surface_mesh = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
+            # Load the NIfTI file using nibabel to get the affine matrix
+            nifti_image = nib.load(nifti_file_path)
+            affine_matrix = nifti_image.affine
+            
+            # Create the transformation matrix
+            transform = vtk.vtkTransform()
+            
+            # Apply the rotation (180 degrees around the Z-axis)
+            transform.RotateZ(180)
+            
+            # Apply the translation (shift down using the affine matrix)
+            translation = affine_matrix[:3, 3]
+            transform.Translate(translation[0], translation[1], translation[2])
 
-        for i, f in enumerate(faces):
-            for j in range(3):
-                surface_mesh.vectors[i][j] = verts[f[j], :]
+            # Apply the transform to the polydata
+            transform_filter = vtk.vtkTransformPolyDataFilter()
+            transform_filter.SetInputData(output_polydata2)
+            transform_filter.SetTransform(transform)
+            transform_filter.Update()
+            transformed_polydata = transform_filter.GetOutput()
 
-        # Save the mesh as an STL file
-        surface_mesh.save(stl_file)
+            # Apply vtkPolyDataNormals
+            normals = vtk.vtkPolyDataNormals()
+            normals.SetInputData(transformed_polydata)
+            normals.SetFeatureAngle(60.0)
+            normals.Update()
+            
+            # Write to STL file
+            stl_writer = vtk.vtkSTLWriter()
+            stl_writer.SetFileTypeToBinary()
+            stl_writer.SetFileName(stl_file_path)
+            stl_writer.SetInputData(normals.GetOutput())
+            stl_writer.Write()
+
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file_path} to STL. Error: {e}")
 
     def convert_files(self):
         input_path_str = self.input_path.get()
@@ -83,8 +137,11 @@ class STLConverterGUI(tk.Frame):
 
         for nifti_file in nifti_files:
             nifti_file_path = os.path.join(input_path_str, nifti_file)
-            stl_file_path = os.path.join(output_path_str, f"{os.path.splitext(nifti_file)[0]}.stl")
-            self.nifti_to_stl(nifti_file_path, stl_file_path)
+            base_name = os.path.splitext(os.path.splitext(nifti_file)[0])[0]
+            stl_file_path = os.path.join(output_path_str, f"{base_name}.stl")
+            print (f"The base name is {base_name}")
+            print (f"The stl_file_path is {stl_file_path}")
+            self.nifti_to_stl(nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5)
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
 

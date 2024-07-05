@@ -20,10 +20,11 @@ class nnUNetGUI4(tk.Frame):
         # Get the current working directory and go one level up
         # In this case, it is /Alejandro
         self.parent_dir = os.path.dirname(os.getcwd())
+        self.parent_dir2 = os.path.dirname(self.parent_dir)
         # Construct the path to the target folder and create path
-        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw'))
-        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results'))
-        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed'))
+        self.Path1 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_raw')).as_posix()
+        self.Path2 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_results')).as_posix()
+        self.Path3 = Path(os.path.join(self.parent_dir, 'Airways_v2', 'nnUNet_preprocessed')).as_posix()
         self.input_path = tk.StringVar()
         self.output_path = tk.StringVar()
 
@@ -33,18 +34,37 @@ class nnUNetGUI4(tk.Frame):
         selected_path = filedialog.askdirectory()
         if selected_path:
             self.input_path.set(selected_path)
-            print(f"Input path set to: {selected_path}")
 
     def browse_output_path(self):
         selected_path = filedialog.askdirectory()
         if selected_path:
             self.output_path.set(selected_path)
-            print(f"Output path set to: {selected_path}")
-
+    
     def setup_paths(self):
         nnUNet_IN = self.input_path.get()
         nnUNet_OUT = self.output_path.get()
         return nnUNet_IN, nnUNet_OUT
+    
+    def suffix_files(self, nnUNet_IN, nnUNet_OUT):
+        if not nnUNet_IN and nnUNet_OUT:
+            messagebox.showwarning("Input Error", "Please select the input and output directories.")
+            return
+
+        nifti_files = [f for f in os.listdir(nnUNet_IN) if f.endswith('.nii') or f.endswith('.nii.gz')]
+        print(f"These are the patient files: {nifti_files}")            
+        for nifti_file in nifti_files:
+            base_name, ext = os.path.splitext(nifti_file)
+
+            if ext == ".gz":
+                base_name, ext2 = os.path.splitext(base_name)
+                ext = ext2 + ext
+
+            if not base_name.endswith('_0000'):
+                new_name = f"{base_name}_0000{ext}"
+                new_path = os.path.join(nnUNet_IN, new_name)
+                if not os.path.exists(new_path):
+                    print(f"Renaming NIfTI file {nifti_file} to {new_name}")
+                    os.rename(os.path.join(nnUNet_IN, nifti_file), new_path)
 
     def open_folder(self, path):
         path = os.path.expanduser(path)
@@ -61,7 +81,6 @@ class nnUNetGUI4(tk.Frame):
             messagebox.showerror("Error", f"Failed to open the directory: {str(e)}")
 
     def run_script(self):
-        
         loading = tk.Toplevel(self.parent)  # Use parent to create Toplevel window
         loading.title('Processing')
         loading.configure(bg=styles.BG_COLOR)
@@ -72,11 +91,11 @@ class nnUNetGUI4(tk.Frame):
 
         def script_execution():
             nnUNet_IN, nnUNet_OUT = self.setup_paths()
-            
-            # Ensure paths are in Unix format
-            self.Path1 = self.Path1.as_posix()
-            self.Path2 = self.Path2.as_posix()
-            self.Path3 = self.Path3.as_posix()
+            # Check if the input and output paths are empty
+            if not nnUNet_IN or not nnUNet_OUT:
+                messagebox.showerror("Error", "Path to NIfTI and/or Predictions folder(s) not selected/valid")
+                loading.destroy()  # Close the loading window
+                return
 
             # Debugging print statements
             print('nnUNet_IN:', nnUNet_IN)
@@ -90,23 +109,31 @@ class nnUNetGUI4(tk.Frame):
             os.environ['nnUNet_results'] = self.Path2
             os.environ['nnUNet_preprocessed'] = self.Path3
 
+            # Call suffix_files module to ensure correct file naming
+            self.suffix_files(nnUNet_IN, nnUNet_OUT)
+
             try:
                 # Run nnUNet_predict command
                 result = subprocess.run([
                     'nnUNetv2_predict', '-i', nnUNet_IN, '-o', nnUNet_OUT,
                     '-d', '13', '-c', '3d_fullres',
                 ], capture_output=True, text=True)
-                
+
                 # Print the output for debugging
                 print('stdout:', result.stdout)
                 print('stderr:', result.stderr)
 
                 result.check_returncode()  # This will raise CalledProcessError if the return code is non-zero
 
-                messagebox.showinfo('Notification', f'The prediction has been completed!')
+                messagebox.showinfo('Notification', 'Prediction has been completed!')
             except subprocess.CalledProcessError as e:
                 print(f"Error: {e.stderr}")
                 messagebox.showerror("Error", f"Failed to run nnUNet prediction: {e.stderr}")
+            except Exception as e:
+                print(f"Unexpected error: {str(e)}")
+                messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
+                loading.destroy()  # Close the loading window
+                return
 
         threading.Thread(target=script_execution).start()
 
@@ -115,53 +142,49 @@ class nnUNetGUI4(tk.Frame):
                                 font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), padx=styles.BUTTON_PADDING, pady=styles.BUTTON_PADDING)
         home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="W")
 
-        text_widget = tk.Text(self, wrap='word', height=22, width=100, bg=styles.BG_COLOR, fg="white", font=(styles.FONT_FAMILY, 12), pady=10)
+        text_widget = tk.Text(self, wrap='word', height=18, width=100, bg=styles.BG_COLOR, fg="white", font=(styles.FONT_FAMILY, 12), pady=10)
         text_widget.insert(tk.END, "Welcome to the nnUNet GUI\n\n"
                            "    - Ensure your images are in NIfTI format.\n"
-                           "    - If your images are in DICOM format, use the DICOM to NIfTI Converter module.\n"
-                           "    - CBCT files should be named as \"{Case Identifier}_0000\".\n"
-                           "      - The Case Identifier uniquely identifies each file.\n"
-                           "      - Use descriptive names and number files sequentially, e.g., Airways_1_0000, Airways_2_0000.\n"
+                           "    - If your images are in DICOM format, convert them to NIfTI first using the DICOM to NIfTI Converter module.\n"
                            "    - For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
                            
                            "Steps to start automatic segmentation:\n"
-                           "    - Input a unique Task Number in the format \"TaskXXX_Identifier\".\n"
-                           "       - XXX is any 3-digit number, e.g., Task123_ProjectX.\n"
-                           "    - Click 'Open/Create IN Folder' and copy your CBCT files into the folder.\n"
-                           "    - Click 'Run nnUNet' to start segmentation.\n"
-                           "    - Wait for the notification that segmentation is complete.\n"
-                           "       - Estimated time: 12 minutes per CBCT.\n"
-                           "    - Notification: \"The prediction for 'Your Task Number' has been completed!\"\n"
-                           "    - Click 'Go to OUT Folder (Results)' to see the segmented files.\n"
+                           "    - In the CBCT Folder line, click on 'Browse' and select the folder containing the CBCT images to be segmented.\n"
+                           "    - In the Predictions Folder line, click on 'Browse' and select the folder where the resulting segmentations are to be stored.\n"
+                           "    - Click on 'Run Prediction' to initialize automatic segmentation process. \n"
+                           "    - Wait for the notification \"Prediction has been completed!\" to signal the end of the prediction process\n"
+                           "       - Prediction time is roughly 12 minutes per CBCT.\n"
+                           "       - Total estimated time for completion = 12 minutes x (number of CBCTs). \n"
+                           "    - Click 'Open Predictions Folder' to see the segmented files.\n"
                            "*For more information, visit the nnUNet GitHub page.*"
                           )
         text_widget.tag_configure("bold", font=(styles.FONT_FAMILY, 18, 'bold'))
         text_widget.tag_add("bold", "1.0", "1.end")
-        text_widget.tag_add("bold", "10.0", "10.end")
+        text_widget.tag_add("bold", "7.0", "7.end")
 
         text_widget.tag_configure("bold2", font=(styles.FONT_FAMILY, 14, 'bold'))
         text_widget.tag_add("bold2", "6.62", "6.end")
-        text_widget.tag_add("bold2", "12.62", "12.end")
+        # text_widget.tag_add("bold2", "12.62", "12.end")
 
         text_widget.configure(state='disabled')  
         text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=10)
         text_widget.tag_add("center", "1.0", "1.end") 
-        text_widget.tag_add("center", "10.0", "10.end") 
-        text_widget.tag_add("center", "19.0", "19.end") 
+        text_widget.tag_add("center", "7.0", "7.end") 
+        text_widget.tag_add("center", "15.0", "15.end") 
         text_widget.tag_configure("center", justify='center')
         text_widget.tag_add("white_text", "1.0", "end")
         text_widget.tag_configure("white_text", foreground="white")
-        text_widget.tag_add("link", "8.70", "8.end")
-        text_widget.tag_add("bold2", "8.70", "8.end")
-        text_widget.tag_configure("link", foreground="#00008B", underline=True)
+        text_widget.tag_add("link", "5.74", "5.end")
+        text_widget.tag_add("bold2", "5.74", "5.end")
+        text_widget.tag_configure("link", foreground="blue", underline=True)
 
         def open_url(event):
             webbrowser.open_new("https://download.slicer.org/")
         text_widget.tag_bind("link", "<Button-1>", open_url)
 
-        text_widget.tag_add("link2", "19.0", "19.end")
-        text_widget.tag_add("bold2", "19.0", "19.end")
-        text_widget.tag_configure("link2", foreground="#00008B", underline=True)
+        text_widget.tag_add("link2", "15.0", "15.end")
+        text_widget.tag_add("bold2", "15.0", "15.end")
+        text_widget.tag_configure("link2", foreground="blue", underline=True)
 
         def open_url(event):
             webbrowser.open_new("http://github.com/MIC-DKFZ/nnUNet")
@@ -173,19 +196,19 @@ class nnUNetGUI4(tk.Frame):
         
         # Input folder
         tk.Label(self, text="CBCT folder:", **label_style).grid(row=roww+1, column=0, sticky="E", padx=10, pady = (10, 5))
-        tk.Entry(self, textvariable=self.input_path, width=60).grid(row=roww+1, column=1, sticky="W")
+        tk.Entry(self, textvariable=self.input_path, width=54).grid(row=roww+1, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+1, column=1, sticky="E", padx=(10, 20))
 
         # Output folder
-        tk.Label(self, text="Prediction folder:", **label_style).grid(row=roww+2, column=0, sticky="E", padx=10, pady = (10, 5))
-        tk.Entry(self, textvariable=self.output_path, width=60).grid(row=roww+2, column=1, sticky="W")
+        tk.Label(self, text="Predictions folder:", **label_style).grid(row=roww+2, column=0, sticky="E", padx=10, pady = (10, 5))
+        tk.Entry(self, textvariable=self.output_path, width=54).grid(row=roww+2, column=1, sticky="W")
         tk.Button(self, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=roww+2, column=1, sticky="E", padx=(10, 20))
 
         tk.Button(self, text="Open CBCT Folder", command=lambda: self.open_folder(self.input_path.get()), bg='#BA562E', fg='white', width=20).grid(row=roww+1, column=2, sticky="W", padx=(0), pady=5)
 
         tk.Button(self, text="Open Predictions Folder", command=lambda: self.open_folder(self.output_path.get()), bg='#BA562E', fg='white', width=20).grid(row=roww+2, column=2, sticky="W", padx=(0), pady=5)
 
-        tk.Button(self, text="Run nnUNet", command=lambda: self.run_script(), bg='#2196F3', fg='white', width=40).grid(row=roww+5, column=1, sticky="W", padx=30, pady=5)
+        tk.Button(self, text="Run Prediction", command=lambda: self.run_script(), bg='#2196F3', fg='white', width=40).grid(row=roww+5, column=1, sticky="W", padx=30, pady=5)
 
 if __name__ == "__main__":
     root = tk.Tk()
