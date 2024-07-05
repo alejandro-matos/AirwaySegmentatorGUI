@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import styles  # Import the styles module
 import trimesh
+import vtk
 
 class STLConverterGUI(tk.Frame):
     def __init__(self, parent, home_callback):
@@ -47,41 +48,79 @@ class STLConverterGUI(tk.Frame):
             else:
                 os.system(f"xdg-open {output_path_str}")
 
-    def nifti_to_stl(self, nifti_file, stl_file):
+    def nifti_to_stl(self,nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
         try:
             # Load NIfTI file
-            nifti_image = nib.load(nifti_file)
-            nifti_data = nifti_image.get_fdata()
+            reader = vtk.vtkNIFTIImageReader()
+            reader.SetFileName(nifti_file_path)
+            reader.Update()
             
-            # Get the affine transformation matrix
-            affine = nifti_image.affine
+            # Apply vtkDiscreteFlyingEdges3D
+            discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
+            discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
+            discrete_flying_edges.SetValue(0, threshold_value)  # Set the threshold value
+            discrete_flying_edges.Update()
             
-            # Separate the rotation/scaling and translation components
-            rotation_scaling = affine[:3, :3]
-            translation = affine[:3, 3]
+            # Output from vtkDiscreteFlyingEdges3D
+            output_polydata = discrete_flying_edges.GetOutput()
+
+            # Apply vtkDecimatePro for decimation (optional)
+            if decimate:
+                decimator = vtk.vtkDecimatePro()
+                decimator.SetInputData(output_polydata)
+                decimator.SetTargetReduction(decimate_target_reduction)  # Reduce to target percentage
+                decimator.PreserveTopologyOn()
+                decimator.Update()
+                output_polydata = decimator.GetOutput()
+            # else:
+            #     output_polydata = smoothed_polydata1
+
+            # Apply smoothing filter to reduce segmentation artifacts
+            smoothing_filter = vtk.vtkSmoothPolyDataFilter()
+            smoothing_filter.SetInputData(output_polydata)
+            smoothing_filter.SetNumberOfIterations(5)
+            smoothing_filter.SetRelaxationFactor(0.05)
+            smoothing_filter.FeatureEdgeSmoothingOff()
+            smoothing_filter.BoundarySmoothingOn()
+            smoothing_filter.Update()
+            output_polydata2 = smoothing_filter.GetOutput()
+
+            # Load the NIfTI file using nibabel to get the affine matrix
+            nifti_image = nib.load(nifti_file_path)
+            affine_matrix = nifti_image.affine
             
-            # Apply marching cubes algorithm to get the mesh
-            verts, faces, _, _ = measure.marching_cubes(nifti_data, level=0.45)
+            # Create the transformation matrix
+            transform = vtk.vtkTransform()
             
-            # Apply rotation and scaling
-            transformed_verts = verts.dot(rotation_scaling)
+            # Apply the rotation (180 degrees around the Z-axis)
+            transform.RotateZ(180)
             
-            # Apply translation
-            transformed_verts += translation
+            # Apply the translation (shift down using the affine matrix)
+            translation = affine_matrix[:3, 3]
+            transform.Translate(translation[0], translation[1], translation[2])
+
+            # Apply the transform to the polydata
+            transform_filter = vtk.vtkTransformPolyDataFilter()
+            transform_filter.SetInputData(output_polydata2)
+            transform_filter.SetTransform(transform)
+            transform_filter.Update()
+            transformed_polydata = transform_filter.GetOutput()
+
+            # Apply vtkPolyDataNormals
+            normals = vtk.vtkPolyDataNormals()
+            normals.SetInputData(transformed_polydata)
+            normals.SetFeatureAngle(60.0)
+            normals.Update()
             
-            # Convert from RAS+ to LPS+ (if necessary)
-            # This transformation flips the x (Right to Left) and y (Anterior to Posterior) coordinates
-            transformed_verts[:, 0] = -transformed_verts[:, 0]  # Flip x
-            transformed_verts[:, 1] = -transformed_verts[:, 1]  # Flip y
-            
-            # Create a mesh
-            mesh = trimesh.Trimesh(vertices=transformed_verts, faces=faces)
-            
-            # Export to STL file
-            mesh.export(stl_file)
+            # Write to STL file
+            stl_writer = vtk.vtkSTLWriter()
+            stl_writer.SetFileTypeToBinary()
+            stl_writer.SetFileName(stl_file_path)
+            stl_writer.SetInputData(normals.GetOutput())
+            stl_writer.Write()
 
         except Exception as e:
-            messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file} to STL. Error: {e}")
+            messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file_path} to STL. Error: {e}")
 
     def convert_files(self):
         input_path_str = self.input_path.get()
@@ -102,7 +141,7 @@ class STLConverterGUI(tk.Frame):
             stl_file_path = os.path.join(output_path_str, f"{base_name}.stl")
             print (f"The base name is {base_name}")
             print (f"The stl_file_path is {stl_file_path}")
-            self.nifti_to_stl(nifti_file_path, stl_file_path)
+            self.nifti_to_stl(nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5)
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
 
