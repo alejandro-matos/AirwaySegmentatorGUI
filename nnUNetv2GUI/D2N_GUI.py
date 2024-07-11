@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox, filedialog
-import dicom2nifti
 import os
 from pathlib import Path
 import sys
-import styles
 import pydicom
 from PIL import Image, ImageTk
+import SimpleITK as sitk
+import styles
 
 class CustomCheckButton(tk.Label):
     def __init__(self, parent, variable, on_image, off_image, command=None, *args, **kwargs):
@@ -37,11 +37,11 @@ class AnonDtoNGUI(tk.Frame):
         self.configure(bg=styles.BG_COLOR)
 
         self.input_path = tk.StringVar()
-        self.output_path = tk.StringVar()  # Added output path variable
-        self.starting_number = tk.IntVar(value=1)  # Added starting number variable
+        self.output_path = tk.StringVar()
+        self.starting_number = tk.IntVar(value=1)
         self.anonymize = tk.BooleanVar()
         self.convert_to_nifti = tk.BooleanVar()
-        self.rename_files = tk.BooleanVar()  # Added rename files variable
+        self.rename_files = tk.BooleanVar()
         self.data_nickname = tk.StringVar(value='Airways')
 
         self.load_icons()
@@ -67,7 +67,6 @@ class AnonDtoNGUI(tk.Frame):
             self.unchecked_icon = None
 
     def resource_path(self, relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         abs_path = Path(base_path) / relative_path
         return abs_path.as_posix()
@@ -100,11 +99,11 @@ class AnonDtoNGUI(tk.Frame):
                 else:
                     os.system(f"xdg-open {processed_dir}")
 
-    def anonymize_dicom(self, input_file, output_file, anonymized_file_name, patient_name):
+    def anonymize_dicom(self, input_file, output_file, patient_name):
         dataset = pydicom.dcmread(input_file, force=True)
         tags_to_anonymize = [
             ("PatientName", patient_name),
-            ("PatientID", "ANONYMIZED"),
+            ("PatientID", "ANON"),
             ("PatientBirthDate", "N/A"),
             ("PatientSex", "N/A"),
         ]
@@ -113,26 +112,51 @@ class AnonDtoNGUI(tk.Frame):
                 dataset.data_element(tag).value = value
         dataset.save_as(output_file)
 
+    def convert_dicom_to_nifti(self, dicom_folder, output_file):
+        print(f"Converting DICOM folder: {dicom_folder}")
+        print(f"Output file: {output_file}")
+
+        # Read the DICOM series
+        reader = sitk.ImageSeriesReader()
+        dicom_names = reader.GetGDCMSeriesFileNames(dicom_folder)
+        reader.SetFileNames(dicom_names)
+        image = reader.Execute()
+
+        # Ensure the direction is correct
+        direction = image.GetDirection()
+        if direction[8] < 0:  # If the Z-axis is inverted
+            image = sitk.Flip(image, [False, False, True])
+
+        # Write the NIfTI file
+        sitk.WriteImage(image, output_file)
+
+        # Print some information for verification
+        print(f"Image size: {image.GetSize()}")
+        print(f"Image spacing: {image.GetSpacing()}")
+        print(f"Image origin: {image.GetOrigin()}")
+        print(f"Image direction: {image.GetDirection()}")
+
+        print(f"NIfTI file saved: {output_file}")
+
     def convert_files(self):
         input_path_str = self.input_path.get()
+        if not input_path_str:
+            messagebox.showwarning("Input Error", "Please select the input directory.")
+            return
+
+        parent_directory = os.path.dirname(input_path_str)
+        output_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
+        self.output_path.set(output_dir)
+
         anonymize = self.anonymize.get()
         convert_to_nifti = self.convert_to_nifti.get()
         rename_files = self.rename_files.get()
         data_nick = self.data_nickname.get()
 
-        if not input_path_str:
-            messagebox.showwarning("Input Error", "Please select the input directory.")
-            return
+        if convert_to_nifti:
+            central_nifti_folder = os.path.join(output_dir, "NIfTI")
+            os.makedirs(central_nifti_folder, exist_ok=True)
 
-        # Get the parent directory of the input folder
-        parent_directory = os.path.dirname(input_path_str)
-        output_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
-        self.output_path.set(output_dir)  # Set the output directory
-
-        central_nifti_folder = os.path.join(output_dir, "NIfTI")
-        os.makedirs(central_nifti_folder, exist_ok=True)
-
-        # File to store the mapping of original and anonymized folder names
         if rename_files:
             mapping_file_path = os.path.join(output_dir, "folder_mapping.txt")
             with open(mapping_file_path, "w") as mapping_file:
@@ -146,8 +170,7 @@ class AnonDtoNGUI(tk.Frame):
             patient_folder_path = os.path.join(input_path_str, patient_folder)
 
             if rename_files:
-                anonymized_folder_name = f"{data_nick}_{patient_index}"  # Custom naming
-                # Log folder names to the mapping file
+                anonymized_folder_name = f"{data_nick}_{patient_index}"
                 with open(mapping_file_path, "a") as mapping_file:
                     mapping_file.write(f"{patient_folder}\t{anonymized_folder_name}\n")
                 patient_name = anonymized_folder_name
@@ -156,7 +179,6 @@ class AnonDtoNGUI(tk.Frame):
                 patient_name = patient_folder
 
             if anonymize:
-                # Create base directories inside the output_dir
                 base_anonymized_path = os.path.join(output_dir, "Processed CBCTs")
                 os.makedirs(base_anonymized_path, exist_ok=True)
                 anonymized_folder_path = os.path.join(base_anonymized_path, anonymized_folder_name)
@@ -166,32 +188,20 @@ class AnonDtoNGUI(tk.Frame):
 
             if convert_to_nifti:
                 try:
-                    dicom2nifti.convert_directory(anonymized_folder_path, central_nifti_folder, compression=True)
-                except dicom2nifti.exceptions.ConversionError as e:
-                    print(f"Error converting {anonymized_folder_path}: {e}")
-                except Exception as e:
-                    print(f"Unexpected error: {e}")
-
-                nifti_files = [f for f in os.listdir(central_nifti_folder) if f.endswith('.nii') or f.endswith('.nii.gz')]
-                for nifti_file in nifti_files:
-                    base_name, ext = os.path.splitext(nifti_file)
-
-                    if ext == ".gz":
-                        base_name, ext2 = os.path.splitext(base_name)
-                        if rename_files:
-                            new_name = f"{data_nick}_{patient_index}{ext2}{ext}"
-                        else:
-                            new_name = f"{patient_folder}{ext2}{ext}"
+                    if anonymize:
+                        source_folder = anonymized_folder_path
                     else:
-                        if rename_files:
-                            new_name = f"{data_nick}_{patient_index}{ext}"
-                        else:
-                            new_name = f"{patient_folder}{ext}"
-
-                    new_path = os.path.join(central_nifti_folder, new_name)
-                    if not os.path.exists(new_path):
-                        print(f"Renaming NIfTI file {nifti_file} to {new_name}")
-                        os.rename(os.path.join(central_nifti_folder, nifti_file), new_path)
+                        source_folder = patient_folder_path
+                    
+                    if rename_files:
+                        output_filename = f"{data_nick}_{patient_index}.nii.gz"
+                    else:
+                        output_filename = f"{patient_folder}.nii.gz"
+                    
+                    output_file = os.path.join(central_nifti_folder, output_filename)
+                    self.convert_dicom_to_nifti(source_folder, output_file)
+                except Exception as e:
+                    print(f"Error converting {source_folder}: {e}")
 
         messagebox.showinfo("Process Complete", "The selected operations have been completed.")
 
@@ -205,12 +215,11 @@ class AnonDtoNGUI(tk.Frame):
                 if file_name.lower().endswith(".dcm") or "DCM" in file_name:
                     input_file_path = os.path.join(root, file_name)
                     if self.rename_files.get():
-                        # Rename the file using the patient index and starting number
                         anonymized_file_name = f"{data_nick}_{patient_index}_{1 + i}.dcm"
                     else:
                         anonymized_file_name = file_name
                     output_file_path = os.path.join(output_folder, anonymized_file_name)
-                    self.anonymize_dicom(input_file_path, output_file_path, anonymized_file_name, patient_name)
+                    self.anonymize_dicom(input_file_path, output_file_path, patient_name)
 
     def toggle_rename_fields(self):
         if self.rename_files.get():
