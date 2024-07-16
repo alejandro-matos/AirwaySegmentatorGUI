@@ -1,14 +1,9 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import os
-import nibabel as nib
-import numpy as np
-from skimage import measure
-from stl import mesh
-from PIL import Image, ImageTk
 from pathlib import Path
 import sys
-import styles  # Import the styles module
+import styles
 import vtk
 
 class STLConverterGUI(tk.Frame):
@@ -57,24 +52,21 @@ class STLConverterGUI(tk.Frame):
             # Apply vtkDiscreteFlyingEdges3D
             discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
             discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
-            discrete_flying_edges.SetValue(0, threshold_value)  # Set the threshold value
+            discrete_flying_edges.SetValue(0, threshold_value)
             discrete_flying_edges.Update()
             
-            # Output from vtkDiscreteFlyingEdges3D
             output_polydata = discrete_flying_edges.GetOutput()
 
-            # Apply vtkDecimatePro for decimation (optional)
+            # Apply decimation if requested
             if decimate:
                 decimator = vtk.vtkDecimatePro()
                 decimator.SetInputData(output_polydata)
-                decimator.SetTargetReduction(decimate_target_reduction)  # Reduce to target percentage
+                decimator.SetTargetReduction(decimate_target_reduction)
                 decimator.PreserveTopologyOn()
                 decimator.Update()
                 output_polydata = decimator.GetOutput()
-            # else:
-            #     output_polydata = smoothed_polydata1
 
-            # Apply smoothing filter to reduce segmentation artifacts
+            # Apply smoothing
             smoothing_filter = vtk.vtkSmoothPolyDataFilter()
             smoothing_filter.SetInputData(output_polydata)
             smoothing_filter.SetNumberOfIterations(5)
@@ -82,38 +74,42 @@ class STLConverterGUI(tk.Frame):
             smoothing_filter.FeatureEdgeSmoothingOff()
             smoothing_filter.BoundarySmoothingOn()
             smoothing_filter.Update()
-            output_polydata2 = smoothing_filter.GetOutput()
+            output_polydata = smoothing_filter.GetOutput()
 
-            # Load the NIfTI file using nibabel to get the affine matrix
-            nifti_image = nib.load(nifti_file_path)
-            affine_matrix = nifti_image.affine
+            # Get QForm matrix
+            qform_matrix = reader.GetQFormMatrix()
 
-            print(affine_matrix)
-            
-            # Create the transformation matrix
+            # Create IJK to RAS transformation
+            ijk_to_ras = vtk.vtkMatrix4x4()
+            ijk_to_ras.DeepCopy(qform_matrix)
+
+            # Adjust for VTK's coordinate system
+            flip_xy = vtk.vtkMatrix4x4()
+            flip_xy.SetElement(0, 0, -1)
+            flip_xy.SetElement(1, 1, -1)
+
+            vtk.vtkMatrix4x4.Multiply4x4(flip_xy, ijk_to_ras, ijk_to_ras)
+
+            # Create transformation matrix
             transform = vtk.vtkTransform()
-            
-            # Apply the rotation (180 degrees around the Z-axis)
-            # transform.RotateZ(180)
-            
-            # Apply the translation (shift down using the affine matrix)
-            translation = affine_matrix[:3, 3]
-            transform.Translate(translation[0], translation[1], translation[2])
+            transform.SetMatrix(ijk_to_ras)
 
-            # Apply the transform to the polydata
+            # Apply transformation
             transform_filter = vtk.vtkTransformPolyDataFilter()
-            transform_filter.SetInputData(output_polydata2)
+            transform_filter.SetInputData(output_polydata)
             transform_filter.SetTransform(transform)
             transform_filter.Update()
             transformed_polydata = transform_filter.GetOutput()
 
-            # Apply vtkPolyDataNormals
+            # Compute normals
             normals = vtk.vtkPolyDataNormals()
             normals.SetInputData(transformed_polydata)
             normals.SetFeatureAngle(60.0)
+            normals.ConsistencyOn()
+            normals.SplittingOff()
             normals.Update()
-            
-            # Write to STL file
+
+            # Write STL file
             stl_writer = vtk.vtkSTLWriter()
             stl_writer.SetFileTypeToBinary()
             stl_writer.SetFileName(stl_file_path)
