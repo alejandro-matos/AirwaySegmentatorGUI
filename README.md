@@ -27,5 +27,5 @@ This section will list the most commonly encountered issues and how to solve the
 <!--tk Add issues and how to solve them-->
 
 ## Acknowledgements
-Authors: A. Matos Camarillo (University of Alberta), S. Capenakas-Gianoni (University of Alberta), M. Lagravere-Vich (University of Alberta)
+Authors: A. Matos Camarillo (University of Alberta), S. Capenakas-Gianoni (University of Alberta), K. Punithakumar (University of Alberta), M. Lagravere-Vich (University of Alberta)
 Supported by (Add funding sources tk)
