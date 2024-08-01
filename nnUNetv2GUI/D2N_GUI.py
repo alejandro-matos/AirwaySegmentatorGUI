@@ -1,70 +1,32 @@
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import messagebox, filedialog
 import os
 from pathlib import Path
 import sys
 import pydicom
-from PIL import Image, ImageTk
 import SimpleITK as sitk
 import styles
 
-class CustomCheckButton(tk.Label):
-    def __init__(self, parent, variable, on_image, off_image, command=None, *args, **kwargs):
-        super().__init__(parent, *args, **kwargs)
-        self.variable = variable
-        self.on_image = on_image
-        self.off_image = off_image
-        self.command = command
-        self.configure(image=self.off_image, bg=styles.BG_COLOR)
-        self.bind("<Button-1>", self.toggle)
-
-    def toggle(self, event=None):
-        if self.variable.get():
-            self.variable.set(False)
-            self.configure(image=self.off_image)
-        else:
-            self.variable.set(True)
-            self.configure(image=self.on_image)
-        
-        if self.command:
-            self.command()
-
-class AnonDtoNGUI(tk.Frame):
+class AnonDtoNGUI(ctk.CTkFrame):
     def __init__(self, parent, home_callback):
         super().__init__(parent)
         self.parent = parent
         self.home_callback = home_callback
-        self.configure(bg=styles.BG_COLOR)
+        
+        # Set the size of the frame to match the main window
+        self.configure(width=styles.WINDOW_WIDTH, height=styles.WINDOW_HEIGHT)
 
-        self.input_path = tk.StringVar()
-        self.output_path = tk.StringVar()
-        self.starting_number = tk.IntVar(value=1)
-        self.anonymize = tk.BooleanVar()
-        self.convert_to_nifti = tk.BooleanVar()
-        self.rename_files = tk.BooleanVar()
-        self.data_nickname = tk.StringVar(value='Airways')
+        self.input_path = ctk.StringVar()
+        self.output_path = ctk.StringVar()
+        self.starting_number = ctk.IntVar(value=1)
+        self.anonymize = ctk.BooleanVar()
+        self.convert_to_nifti = ctk.BooleanVar()
+        self.rename_files = ctk.BooleanVar()
+        self.data_nickname = ctk.StringVar(value='Airways')
 
-        self.load_icons()
         self.create_widgets()
-
-    def load_icons(self):
-        try:
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            checked_icon_path = os.path.join(base_dir, "Images", "checked.png")
-            unchecked_icon_path = os.path.join(base_dir, "Images", "unchecked.png")
-
-            image_size = 20
-
-            checked_icon = Image.open(checked_icon_path).resize((image_size, image_size), Image.LANCZOS)
-            self.checked_icon = ImageTk.PhotoImage(checked_icon)
-
-            unchecked_icon = Image.open(unchecked_icon_path).resize((image_size, image_size), Image.LANCZOS)
-            self.unchecked_icon = ImageTk.PhotoImage(unchecked_icon)
-
-        except Exception as e:
-            print(f"Error loading images: {e}")
-            self.checked_icon = None
-            self.unchecked_icon = None
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
 
     def resource_path(self, relative_path):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -116,21 +78,17 @@ class AnonDtoNGUI(tk.Frame):
         print(f"Converting DICOM folder: {dicom_folder}")
         print(f"Output file: {output_file}")
 
-        # Read the DICOM series
         reader = sitk.ImageSeriesReader()
         dicom_names = reader.GetGDCMSeriesFileNames(dicom_folder)
         reader.SetFileNames(dicom_names)
         image = reader.Execute()
 
-        # Ensure the direction is correct
         direction = image.GetDirection()
-        if direction[8] < 0:  # If the Z-axis is inverted
+        if direction[8] < 0:
             image = sitk.Flip(image, [False, False, True])
 
-        # Write the NIfTI file
         sitk.WriteImage(image, output_file)
 
-        # Print some information for verification
         print(f"Image size: {image.GetSize()}")
         print(f"Image spacing: {image.GetSpacing()}")
         print(f"Image origin: {image.GetOrigin()}")
@@ -223,19 +181,33 @@ class AnonDtoNGUI(tk.Frame):
 
     def toggle_rename_fields(self):
         if self.rename_files.get():
-            self.nick_label_entry.config(state=tk.NORMAL)
-            self.start_number_entry.config(state=tk.NORMAL)
+            self.nick_label_entry.configure(state="normal")
+            self.start_number_entry.configure(state="normal")
         else:
-            self.nick_label_entry.config(state=tk.DISABLED)
-            self.start_number_entry.config(state=tk.DISABLED)
+            self.nick_label_entry.configure(state="disabled")
+            self.start_number_entry.configure(state="disabled")
 
     def create_widgets(self):
-        home_button = tk.Button(self, text="Home", command=self.home_callback, bg='#FF9800', fg='white',
-                                font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE), padx=styles.BUTTON_PADDING, pady=styles.BUTTON_PADDING)
-        home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="W")
+        # Home button
+        home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
+                                    font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
+        home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="w")
 
-        text_widget = tk.Text(self, wrap='word', height=18, width=86, bg=styles.BG_COLOR, fg='white', font=(styles.FONT_FAMILY, 13))
-        text_widget.insert(tk.END, """File Converter Module\n
+        # Main content frame
+        content_frame = ctk.CTkFrame(self)
+        content_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(0, weight=1)
+
+        # Scrollable frame for text and inputs
+        scrollable_frame = ctk.CTkScrollableFrame(content_frame)
+        scrollable_frame.grid(row=0, column=0, sticky="nsew")
+        scrollable_frame.grid_columnconfigure(0, weight=1)
+
+        # Text widget
+        text_widget = ctk.CTkTextbox(scrollable_frame, wrap='word', height=200)
+        text_widget.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        text_widget.insert("1.0", """File Converter Module\n
         This module processes DICOM images by anonymizing them, converting them to NIfTI format,
         and renaming the files to meet the algorithm's naming convention for proper identification.
                 
@@ -251,71 +223,72 @@ class AnonDtoNGUI(tk.Frame):
         - Click 'Start' to begin processing the selected tasks.
         - Once done, click 'Open Folder' to access the processed images and renaming key in the newly 
         created folder called "{Folder Name}_Processed_Images".""")
-        text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=(10, 20))
-        text_widget.tag_configure("bold", font=(styles.FONT_FAMILY, 18, 'bold'))
-        text_widget.tag_configure("center", justify='center')
-        text_widget.tag_add("bold", "1.0", "1.end")
-        text_widget.tag_add("center", "1.0", "1.end")
         text_widget.configure(state='disabled')
 
-        label_style_title = {'bg': styles.BG_COLOR, 'fg': 'white', 'font': (styles.FONT_FAMILY, styles.FONT_SIZE+4, 'bold')}
-        label_style = {'bg': styles.BG_COLOR, 'fg': 'white', 'font': (styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')}
-        label_grid = {'sticky': tk.W, 'padx': 10, 'pady': (10, 5)}
+        # Task selection frame
+        task_frame = ctk.CTkFrame(scrollable_frame)
+        task_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        task_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
-        roww = 2
+        task_label = ctk.CTkLabel(task_frame, text="Select tasks to perform:", font=(styles.FONT_FAMILY, styles.FONT_SIZE+4, 'bold'))
+        task_label.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
 
-        task_label = tk.Label(self, text="Select tasks to perform:", **label_style_title).grid(row=roww, columnspan=3, **label_grid)
+        anonymize_switch = ctk.CTkSwitch(task_frame, text="Anonymize CBCTs", variable=self.anonymize, 
+                                         font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        anonymize_switch.grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
 
-        anonymize_label = tk.Label(self, text="Anonymize CBCTs", **label_style)
-        anonymize_label.grid(row=roww+1, column=0, sticky="EW", padx=(20, 0))
-        anonymize_toggle = CustomCheckButton(self, variable=self.anonymize, on_image=self.checked_icon, off_image=self.unchecked_icon)
-        anonymize_toggle.grid(row=roww+2, column=0, sticky="EW", padx=(20, 0))
+        convert_switch = ctk.CTkSwitch(task_frame, text="Convert to NIfTI", variable=self.convert_to_nifti,
+                                       font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        convert_switch.grid(row=1, column=2, columnspan=2, sticky="w", pady=5)
 
-        convert_label = tk.Label(self, text="Convert to NIfTI", **label_style)
-        convert_label.grid(row=roww+1, column=1, sticky="EW", padx=(20, 0))
-        convert_toggle = CustomCheckButton(self, variable=self.convert_to_nifti, on_image=self.checked_icon, off_image=self.unchecked_icon)
-        convert_toggle.grid(row=roww+2, column=1, sticky="EW", padx=(20, 0))
+        separator = ctk.CTkFrame(task_frame, height=2, fg_color='white')
+        separator.grid(row=2, column=0, columnspan=5, sticky="ew", pady=10)
 
-        # Create a Canvas widget for the thick horizontal line
-        line_canvas = tk.Canvas(self, height=3, bg='white', highlightthickness=0)
-        line_canvas.grid(row=roww+3, column=0, columnspan=3, sticky="EW", padx=20, pady=(10, 20))
+        rename_switch = ctk.CTkSwitch(task_frame, text="Rename files", variable=self.rename_files,
+                                      font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'),
+                                      command=self.toggle_rename_fields)
+        rename_switch.grid(row=3, column=0, sticky="w", pady=5)
 
-        # Add option asking whether to rename files or not
-        rename_label = tk.Label(self, text="Rename files?", **label_style)
-        rename_label.grid(row=roww+4, column=0, **label_grid)
-        rename_toggle = CustomCheckButton(self, variable=self.rename_files, on_image=self.checked_icon, off_image=self.unchecked_icon, command=self.toggle_rename_fields)
-        rename_toggle.grid(row=roww+4, column=0, sticky="E", padx=(0,50), pady=(10, 5))
+        nick_label = ctk.CTkLabel(task_frame, text="Name to be applied:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        nick_label.grid(row=3, column=1, sticky="e", pady=5, padx=(10, 5))
+        self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150)
+        self.nick_label_entry.grid(row=3, column=2, sticky="w", pady=5)
 
-        # Name given to files
-        nick_label = tk.Label(self, text="Name to be applied to files:", **label_style).grid(row=roww+4, column=1, **label_grid)
-        self.nick_label_entry = tk.Entry(self, textvariable=self.data_nickname, width=15)
-        self.nick_label_entry.grid(row=roww+4, column=1, sticky="E", padx=(180, 20), pady=(10, 5))
+        start_number_label = ctk.CTkLabel(task_frame, text="Starting number:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        start_number_label.grid(row=3, column=3, sticky="e", pady=5, padx=(10, 5))
+        self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100)
+        self.start_number_entry.grid(row=3, column=4, sticky="w", pady=5)
 
-        # Starting number for anonymized files
-        start_number_label = tk.Label(self, text="Starting number:", **label_style).grid(row=roww+4, column=2, sticky='W', padx=(10, 5), pady=(10, 5))
-        self.start_number_entry = tk.Entry(self, textvariable=self.starting_number, width=10)
-        self.start_number_entry.grid(row=roww+4, column=2, sticky="E", padx=(10, 20), pady=(10, 5))
+        # Input folder frame
+        input_frame = ctk.CTkFrame(scrollable_frame)
+        input_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        input_frame.grid_columnconfigure(1, weight=1)
 
-        input_label = tk.Label(self, text="Select Folder:", **label_style).grid(row=roww+5, column=0, **label_grid)
-        input_entry = tk.Entry(self, textvariable=self.input_path, width=50)
-        input_entry.grid(row=roww+5, column=0, columnspan=2, sticky="EW", padx=(150, 20))
+        input_label = ctk.CTkLabel(input_frame, text="Select Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
+        input_label.grid(row=0, column=0, sticky="w", padx=(0, 10))
+        input_entry = ctk.CTkEntry(input_frame, textvariable=self.input_path)
+        input_entry.grid(row=0, column=1, sticky="ew", padx=(0, 10))
+        input_button = ctk.CTkButton(input_frame, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2), fg_color='#2196F3')
+        input_button.grid(row=0, column=2, padx=(0, 10))
+        open_button = ctk.CTkButton(input_frame, text="Open Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
+        open_button.grid(row=0, column=3)
 
-        input_button = tk.Button(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2), padx=10, pady=0)
-        input_button.grid(row=roww+5, column=2, sticky="W", padx=(10, 0))
-
-        open_button = tk.Button(self, text="Open Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2), padx=10, pady=0)
-        open_button.grid(row=roww+5, column=2, sticky="E", padx=(80, 20))
-
-        convert_button = tk.Button(self, text="Start", command=self.convert_files, bg='#2196F3', fg='white',
-                                font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE),  # Increase font size
-                                padx=20, pady=10)  # Increase padding
-        convert_button.grid(row=roww+6, column=0, columnspan=3, padx=(100, 0), pady=(10, 20))
+        # Start button
+        convert_button = ctk.CTkButton(scrollable_frame, text="Start", command=self.convert_files, fg_color='#008000', text_color='white',
+                                       font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
+        convert_button.grid(row=3, column=0, pady=20)
 
         # Initially disable the name and starting number fields
         self.toggle_rename_fields()
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    ctk.set_appearance_mode("dark")  # Set the appearance mode to dark
+    ctk.set_default_color_theme("blue")  # Set the color theme to blue
+
+    root = ctk.CTk()
+    root.title("DICOM to NIfTI Converter")
+    root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")  # Set fixed geometry
+    root.resizable(False, False)  # Disable window resizing
     app = AnonDtoNGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
-    app.pack(fill=tk.BOTH, expand=True)
+    app.pack(fill="both", expand=True)
     root.mainloop()
