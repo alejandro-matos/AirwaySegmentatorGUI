@@ -15,8 +15,7 @@ If you use UpperAirwaySegmentator for your work, please cite our paper and nnU-N
 
 > Isensee F, Jaeger PF, Kohl SAA, Petersen J, Maier-Hein KH. nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation. Nat Methods. 2021;18(2):203-211. doi:10.1038/s41592-020-01008-z
 
-There will also soon be a 3D Slicer extension available for this model, which can be found here: TBD
-<!--tk Will add link to 3D Slicer extension here also-->
+There will also soon be a 3D Slicer extension available for this model, which can be found here: (https://github.com/alejandro-matos/SlicerUpperAirwaySegmentator)
 
 ## Getting started with UpperAirwaySegmentator
 This GUI has been tested in Windows, soon to be tested on MacOS and Linux.
@@ -28,5 +27,5 @@ This section will list the most commonly encountered issues and how to solve the
 <!--tk Add issues and how to solve them-->
 
 ## Acknowledgements
-Authors: A. Matos Camarillo (University of Alberta), S. Capenakas-Gianoni (University of Alberta), M. Lagravere-Vich (University of Alberta)
+Authors: A. Matos Camarillo (University of Alberta), S. Capenakas-Gianoni (University of Alberta), K. Punithakumar (University of Alberta), M. Lagravere-Vich (University of Alberta)
 Supported by (Add funding sources tk)
