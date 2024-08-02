@@ -48,7 +48,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
     def open_folder(self):
         input_path_str = self.input_path.get()
         parent_directory = os.path.dirname(input_path_str)
-        processed_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
+        processed_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_ConvertedFiles")
         if processed_dir:
             if not os.path.isdir(processed_dir):
                 messagebox.showwarning("Directory Error", f"The directory {processed_dir} does not exist. Please ensure that the correct folder is selected and/or that it has been processed.")
@@ -103,7 +103,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
             return
 
         parent_directory = os.path.dirname(input_path_str)
-        output_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_Processed_Images")
+        output_dir = os.path.join(parent_directory, f"{os.path.basename(input_path_str)}_ConvertedFiles")
         self.output_path.set(output_dir)
 
         anonymize = self.anonymize.get()
@@ -137,7 +137,10 @@ class AnonDtoNGUI(ctk.CTkFrame):
                 patient_name = patient_folder
 
             if anonymize:
-                base_anonymized_path = os.path.join(output_dir, "Processed CBCTs")
+                if rename_files:
+                    base_anonymized_path = os.path.join(output_dir, "AnonymizedRenamed DICOMs")
+                else:
+                    base_anonymized_path = os.path.join(output_dir, "Anonymized DICOMs")
                 os.makedirs(base_anonymized_path, exist_ok=True)
                 anonymized_folder_path = os.path.join(base_anonymized_path, anonymized_folder_name)
                 self.anonymize_dicom_folder(patient_folder_path, anonymized_folder_path, patient_index, patient_name)

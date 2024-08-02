@@ -5,7 +5,7 @@ from tkinter import ttk
 BG_COLOR = "#262626"
 FONT_FAMILY = "Arial"  # Use a standard font
 FONT_SIZE = 12
-WINDOW_WIDTH = 800
+WINDOW_WIDTH = 850
 WINDOW_HEIGHT = 700
 BUTTON_FONT_SIZE = 14  # Increase button font size
 BUTTON_PADDING = 10  # Add padding around the button
