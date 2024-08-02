@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 import customtkinter as ctk
 from D2N_GUI import AnonDtoNGUI
-from nnUNetGUIv2_ctk import nnUNetGUI4
+from nnUNetGUIv3 import nnUNetScript
 from DCM2STLv2 import AirwaySegmenterGUI
 from STLConvGUI import STLConverterGUI
 from PIL import Image
@@ -128,7 +128,7 @@ class MainGUI(ctk.CTk):
         self.switch_frame(AnonDtoNGUI)
 
     def launch_nnunet_gui(self):
-        self.switch_frame(nnUNetGUI4)
+        self.switch_frame(nnUNetScript)
 
     def launch_stl_converter_gui(self):
         self.switch_frame(STLConverterGUI)

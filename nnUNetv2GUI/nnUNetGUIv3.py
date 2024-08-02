@@ -6,21 +6,22 @@ import os
 from pathlib import Path
 import sys
 import logging
+import styles
 
 # This code is an iteration to see if we can do faster than 12 min.
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-class nnUNetGUI4(ctk.CTkFrame):
+class nnUNetScript(ctk.CTkFrame):
     def __init__(self, parent, home_callback):
         super().__init__(parent)
         self.parent = parent
         self.home_callback = home_callback
 
         self.parent_dir = Path(os.getcwd()).parent
-        self.Path1 = self.parent_dir / 'Airways_v2' / 'nnUNet_raw'
-        self.Path2 = self.parent_dir / 'Airways_v2' / 'nnUNet_results'
-        self.Path3 = self.parent_dir / 'Airways_v2' / 'nnUNet_preprocessed'
+        self.parent_of_parent_dir = self.parent_dir.parent
+        self.Path1 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_raw'
+        self.Path2 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_results'
+        self.Path3 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_preprocessed'
         self.input_path = ctk.StringVar()
         self.output_path = ctk.StringVar()
 
@@ -116,6 +117,19 @@ class nnUNetGUI4(ctk.CTkFrame):
 
         threading.Thread(target=script_execution).start()
     
+    def rename_output_files(self, output_path):
+        for file in os.listdir(output_path):
+            if file.endswith('.nii.gz') and not file.endswith('_seg.nii.gz'):
+                old_path = os.path.join(output_path, file)
+                new_name = f"{os.path.splitext(os.path.splitext(file)[0])[0]}_seg.nii.gz"
+                new_path = os.path.join(output_path, new_name)
+                
+                if not os.path.exists(new_path):
+                    os.rename(old_path, new_path)
+                    logging.info(f"Renamed {file} to {new_name}")
+                else:
+                    logging.info(f"Skipped renaming {file} as {new_name} already exists")
+    
     def create_widgets(self):
         # Home button
         home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
@@ -185,7 +199,7 @@ if __name__ == "__main__":
     root.geometry("1000x800")
     root.minsize(800, 600)
 
-    app = nnUNetGUI4(root, root.destroy)
+    app = nnUNetScript(root, root.destroy)
     app.pack(fill="both", expand=True)
 
     root.mainloop()

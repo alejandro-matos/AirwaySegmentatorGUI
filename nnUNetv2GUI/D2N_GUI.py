@@ -233,7 +233,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
         task_label = ctk.CTkLabel(task_frame, text="Select tasks to perform:", font=(styles.FONT_FAMILY, styles.FONT_SIZE+4, 'bold'))
         task_label.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
 
-        anonymize_switch = ctk.CTkSwitch(task_frame, text="Anonymize CBCTs", variable=self.anonymize, 
+        anonymize_switch = ctk.CTkSwitch(task_frame, text="Anonymized DICOMs", variable=self.anonymize, 
                                          font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
         anonymize_switch.grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
 

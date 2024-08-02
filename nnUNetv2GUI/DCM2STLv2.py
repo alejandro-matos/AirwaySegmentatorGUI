@@ -6,7 +6,7 @@ import sys
 import styles
 import vtk
 
-class STLConverterGUI(ctk.CTkFrame):
+class AirwaySegmenterGUI(ctk.CTkFrame):
     def __init__(self, parent, home_callback):
         super().__init__(parent)
         self.parent = parent
