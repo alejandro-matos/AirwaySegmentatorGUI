@@ -12,9 +12,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
         super().__init__(parent)
         self.parent = parent
         self.home_callback = home_callback
-        
-        # Set the size of the frame to match the main window
-        self.configure(width=styles.WINDOW_WIDTH, height=styles.WINDOW_HEIGHT)
+
 
         self.input_path = ctk.StringVar()
         self.output_path = ctk.StringVar()
@@ -25,8 +23,8 @@ class AnonDtoNGUI(ctk.CTkFrame):
         self.data_nickname = ctk.StringVar(value='Airways')
 
         self.create_widgets()
+        # Adjust grid configuration for vertical centering
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
 
     def resource_path(self, relative_path):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -193,23 +191,24 @@ class AnonDtoNGUI(ctk.CTkFrame):
     def create_widgets(self):
         # Home button
         home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
-                                    font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
-        home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="w")
+                            font=(styles.FONT_FAMILY, styles.HOME_BUTTON_FONT_SIZE), width=styles.HOME_BUTTON_WIDTH, height=styles.HOME_BUTTON_HEIGHT)
+        home_button.grid(row=0, column=0, padx=(styles.PADDING_X, styles.PADDING_X), pady=(styles.PADDING_Y, styles.PADDING_Y), sticky="w")
+
 
         # Main content frame
         content_frame = ctk.CTkFrame(self)
-        content_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        content_frame.grid(row=1, column=0, sticky="", padx=20, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_rowconfigure(0, weight=1)
 
-        # Scrollable frame for text and inputs
-        scrollable_frame = ctk.CTkScrollableFrame(content_frame)
-        scrollable_frame.grid(row=0, column=0, sticky="nsew")
-        scrollable_frame.grid_columnconfigure(0, weight=1)
+        text_frame = ctk.CTkFrame(content_frame)
+        text_frame.grid(row=0, column=0, sticky="nsew")
+        text_frame.grid_columnconfigure(0, weight=1)
 
         # Text widget
-        text_widget = ctk.CTkTextbox(scrollable_frame, wrap='word', height=200)
-        text_widget.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        text_widget = ctk.CTkTextbox(text_frame, wrap='word', height=styles.TEXTBOX_HEIGHT, width=styles.TEXTBOX_WIDTH)
+        text_widget.grid(row=0, column=0, sticky="nsew", padx=styles.PADDING_X, pady=styles.PADDING_Y)
         text_widget.insert("1.0", """File Converter Module\n
         This module processes DICOM images by anonymizing them, converting them to NIfTI format,
         and renaming the files to meet the algorithm's naming convention for proper identification.
@@ -229,14 +228,14 @@ class AnonDtoNGUI(ctk.CTkFrame):
         text_widget.configure(state='disabled')
 
         # Task selection frame
-        task_frame = ctk.CTkFrame(scrollable_frame)
+        task_frame = ctk.CTkFrame(text_frame)
         task_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
         task_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
         task_label = ctk.CTkLabel(task_frame, text="Select tasks to perform:", font=(styles.FONT_FAMILY, styles.FONT_SIZE+4, 'bold'))
         task_label.grid(row=0, column=0, columnspan=5, sticky="w", pady=(0, 10))
 
-        anonymize_switch = ctk.CTkSwitch(task_frame, text="Anonymized DICOMs", variable=self.anonymize, 
+        anonymize_switch = ctk.CTkSwitch(task_frame, text="Anonymize DICOMs", variable=self.anonymize, 
                                          font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold'))
         anonymize_switch.grid(row=1, column=0, columnspan=2, sticky="w", pady=5)
 
@@ -263,7 +262,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
         self.start_number_entry.grid(row=3, column=4, sticky="w", pady=5)
 
         # Input folder frame
-        input_frame = ctk.CTkFrame(scrollable_frame)
+        input_frame = ctk.CTkFrame(text_frame)
         input_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
         input_frame.grid_columnconfigure(1, weight=1)
 
@@ -277,7 +276,7 @@ class AnonDtoNGUI(ctk.CTkFrame):
         open_button.grid(row=0, column=3)
 
         # Start button
-        convert_button = ctk.CTkButton(scrollable_frame, text="Start", command=self.convert_files, fg_color='#008000', text_color='white',
+        convert_button = ctk.CTkButton(text_frame, text="Start", command=self.convert_files, fg_color='#008000', text_color='white',
                                        font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
         convert_button.grid(row=3, column=0, pady=20)
 
@@ -290,8 +289,9 @@ if __name__ == "__main__":
 
     root = ctk.CTk()
     root.title("DICOM to NIfTI Converter")
-    root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")  # Set fixed geometry
-    root.resizable(False, False)  # Disable window resizing
-    app = AnonDtoNGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
-    app.pack(fill="both", expand=True)
+    root.geometry("900x00")  # Adjusted initial geometry for better display
+    root.resizable(True, True)  # Allow window resizing
+
+    app = AnonDtoNGUI(root, root.destroy)
+    app.pack(fill="both", expand=True)  # Expand to fill available space
     root.mainloop()

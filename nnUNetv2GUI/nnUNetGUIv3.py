@@ -27,7 +27,6 @@ class nnUNetScript(ctk.CTkFrame):
 
         self.create_widgets()
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
 
     def browse_input_path(self):
         selected_path = filedialog.askdirectory()
@@ -133,42 +132,41 @@ class nnUNetScript(ctk.CTkFrame):
     def create_widgets(self):
         # Home button
         home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
-                                    font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
-        home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="w")
+                            font=(styles.FONT_FAMILY, styles.HOME_BUTTON_FONT_SIZE), width=styles.HOME_BUTTON_WIDTH, height=styles.HOME_BUTTON_HEIGHT)
+        home_button.grid(row=0, column=0, padx=(styles.PADDING_X, styles.PADDING_X), pady=(styles.PADDING_Y, styles.PADDING_Y), sticky="w")
 
         # Main content frame
         content_frame = ctk.CTkFrame(self)
-        content_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
+        content_frame.grid(row=1, column=0, sticky="", padx=20, pady=10)
         content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_rowconfigure(0, weight=1)
 
-        # Scrollable frame for text and inputs
-        scrollable_frame = ctk.CTkScrollableFrame(content_frame)
-        scrollable_frame.grid(row=0, column=0, sticky="nsew")
-        scrollable_frame.grid_columnconfigure(0, weight=1)
+        text_frame = ctk.CTkFrame(content_frame)
+        text_frame.grid(row=0, column=0, sticky="nsew")
+        text_frame.grid_columnconfigure(0, weight=1)
 
-        # Text widget
-        text_widget = ctk.CTkTextbox(scrollable_frame, wrap='word', height=300)
+        # Adjust the text widget width here
+        text_widget = ctk.CTkTextbox(text_frame, wrap='word', height=300, width=600)  # Width adjusted to match D2N_GUI
         text_widget.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         text_widget.insert("1.0", "Welcome to the nnUNet GUI\n\n"
-                           "    - Ensure your images are in NIfTI format.\n"
-                           "    - If your images are in DICOM format, convert them to NIfTI first using the DICOM to NIfTI Converter module.\n"
-                           "    - For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
-                           
-                           "Steps to start automatic segmentation:\n"
-                           "    - In the CBCT Folder line, click on 'Browse' and select the folder containing the CBCT images to be segmented.\n"
-                           "    - In the Predictions Folder line, click on 'Browse' and select the folder where the resulting segmentations are to be stored.\n"
-                           "    - Click on 'Run Prediction' to initialize automatic segmentation process. \n"
-                           "    - Wait for the notification \"Prediction has been completed!\" to signal the end of the prediction process\n"
-                           "       - Prediction time is roughly 12 minutes per CBCT.\n"
-                           "       - Total estimated time for completion = 12 minutes x (number of CBCTs). \n"
-                           "    - Click 'Open Predictions Folder' to see the segmented files.\n"
-                           "*For more information, visit the nnUNet GitHub page.*"
-                          )
+                        "    - Ensure your images are in NIfTI format.\n"
+                        "    - If your images are in DICOM format, convert them to NIfTI first using the DICOM to NIfTI Converter module.\n"
+                        "    - For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
+                        
+                        "Steps to start automatic segmentation:\n"
+                        "    - In the CBCT Folder line, click on 'Browse' and select the folder containing the CBCT images to be segmented.\n"
+                        "    - In the Predictions Folder line, click on 'Browse' and select the folder where the resulting segmentations are to be stored.\n"
+                        "    - Click on 'Run Prediction' to initialize automatic segmentation process. \n"
+                        "    - Wait for the notification \"Prediction has been completed!\" to signal the end of the prediction process\n"
+                        "       - Prediction time is roughly 12 minutes per CBCT.\n"
+                        "       - Total estimated time for completion = 12 minutes x (number of CBCTs). \n"
+                        "    - Click 'Open Predictions Folder' to see the segmented files.\n"
+                        "*For more information, visit the nnUNet GitHub page.*"
+                        )
         text_widget.configure(state='disabled')
 
         # Input frame
-        input_frame = ctk.CTkFrame(scrollable_frame)
+        input_frame = ctk.CTkFrame(text_frame)
         input_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
         input_frame.grid_columnconfigure(1, weight=1)
 
@@ -178,7 +176,7 @@ class nnUNetScript(ctk.CTkFrame):
         ctk.CTkButton(input_frame, text="Open CBCT Folder", command=lambda: self.open_folder(self.input_path.get()), fg_color='#BA562E', text_color='white').grid(row=0, column=3, padx=5, pady=5)
 
         # Output frame
-        output_frame = ctk.CTkFrame(scrollable_frame)
+        output_frame = ctk.CTkFrame(text_frame)
         output_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
         output_frame.grid_columnconfigure(1, weight=1)
 
@@ -188,7 +186,7 @@ class nnUNetScript(ctk.CTkFrame):
         ctk.CTkButton(output_frame, text="Open Predictions Folder", command=lambda: self.open_folder(self.output_path.get()), fg_color='#BA562E', text_color='white').grid(row=0, column=3, padx=5, pady=5)
 
         # Run prediction button
-        ctk.CTkButton(scrollable_frame, text="Run Prediction", command=self.run_script, fg_color='#2196F3', text_color='white').grid(row=3, column=0, pady=20)
+        ctk.CTkButton(text_frame, text="Run Prediction", command=self.run_script, fg_color='#2196F3', text_color='white').grid(row=3, column=0, pady=20)
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark")
@@ -196,10 +194,13 @@ if __name__ == "__main__":
 
     root = ctk.CTk()
     root.title("nnUNet GUI")
-    root.geometry("1000x800")
-    root.minsize(800, 600)
+    root.geometry("900x00")  # Adjusted initial geometry for better display
+    root.resizable(True, True)  # Allow window resizing
 
     app = nnUNetScript(root, root.destroy)
     app.pack(fill="both", expand=True)
 
     root.mainloop()
+
+    ctk.set_appearance_mode("dark")  # Set the appearance mode to dark
+    ctk.set_default_color_theme("blue")  # Set the color theme to blue
