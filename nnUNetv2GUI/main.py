@@ -8,6 +8,10 @@ from DCM2STLv2 import AirwaySegmenterGUI
 from STLConvGUI import STLConverterGUI
 from PIL import Image
 from styles import FONT_FAMILY, WINDOW_HEIGHT, WINDOW_WIDTH
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def resource_path(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -19,26 +23,51 @@ class MainGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Airway Segmentation")
-        self.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")  # Set fixed geometry
-        self.resizable(True, True) 
+        self.resizable(True, True)
+        
         # Set the color theme
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
         self.corner_image = None  # Create an instance variable to store the corner image
 
+        # Set the application icon
+        self.set_window_icon()
+
         self.create_widgets()
 
+        # Set a minimum window size
+        min_width = 900
+        min_height = 700
+        self.minsize(min_width, min_height)
+
+        # Resize window based on content
+        self.update_idletasks()
+
+    def set_window_icon(self):
+        try:
+            icon_path = resource_path("Images/icon.ico")  # Path to your .ico file
+            self.iconbitmap(icon_path)
+        except Exception as e:
+            logging.error(f"Error setting window icon: {e}")
+
     def create_widgets(self):
-        # Main frame to hold other GUIs
-        self.main_frame = ctk.CTkFrame(self)
-        self.main_frame.pack(fill="both", expand=True)
+        # Create Tab View
+        self.tab_view = ctk.CTkTabView(self.main_frame)
+        self.tab_view.pack(fill="both", expand=True, pady=(5, 0))
+
+        # Adding tabs
+        self.tab_view.add("DICOM Handling")
+        self.tab_view.add("Prediction")
+        self.tab_view.add("3D Visualization")
 
         # Load and place corner image
         self.load_corner_image()
 
-        # Show home page content
-        self.show_home_page()
+        # Initialize each tab’s content
+        self.setup_dicom_handling_tab()
+        self.setup_prediction_tab()
+        self.setup_visualization_tab()
 
     def load_corner_image(self):
         try:
@@ -46,41 +75,34 @@ class MainGUI(ctk.CTk):
             image = Image.open(image_path)
 
             # Resize the image
-            desired_size = (70, 70)  # Set your desired size here
+            desired_size = (80, 80)  # Set your desired size here
             resized_image = image.resize(desired_size, Image.LANCZOS)
 
             # Convert to photo image
             self.corner_image = ctk.CTkImage(resized_image, size=desired_size)
 
-            img_label = ctk.CTkLabel(self, image=self.corner_image, text="", pady=10)
-            img_label.place(relx=1.0, rely=0.0, anchor="ne", x=-40, y=10)
+            img_label = ctk.CTkLabel(self, image=self.corner_image, text="", pady=5)
+            img_label.place(relx=1.0, rely=0.0, anchor="ne", x=-30, y=15)
         except Exception as e:
-            print(f"Error loading corner image: {e}")
+            logging.error(f"Error loading corner image: {e}")
 
     def load_images(self):
         try:
-            # Get the base directory of your Python script
             base_dir = os.path.dirname(os.path.abspath(__file__))
-
-            # Construct the absolute paths to the image files
-            nnunet_image_path = os.path.join(base_dir, "Images", "nnunet_icon2.png")
-            anon_image_path = os.path.join(base_dir, "Images", "D2NConv2.png")
-            stl_image_path = os.path.join(base_dir, "Images", "stl_icon2.png")
-            D2S_image_path = os.path.join(base_dir, "Images", "DCM2STL.png")
-
-            image_size = (200, 200)
-
-            self.nnunet_photo = ctk.CTkImage(Image.open(nnunet_image_path), size=image_size)
-            self.anon_photo = ctk.CTkImage(Image.open(anon_image_path), size=image_size)
-            self.stl_photo = ctk.CTkImage(Image.open(stl_image_path), size=image_size)
-            self.D2S_photo = ctk.CTkImage(Image.open(D2S_image_path), size=image_size)
-
+            image_names = {
+                "nnunet": "nnunet_icon2.png",
+                "anon": "D2NConv2.png",
+                "stl": "stl_icon2.png",
+                "D2S": "DCM2STL.png"
+            }
+            
+            self.images = {}
+            for key, file_name in image_names.items():
+                img_path = os.path.join(base_dir, "Images", file_name)
+                self.images[key] = ctk.CTkImage(Image.open(img_path), size=(200, 200))
         except Exception as e:
-            print(f"Error loading images: {e}")
-            self.nnunet_photo = None
-            self.anon_photo = None
-            self.stl_photo = None
-            self.D2S_photo = None
+            logging.error(f"Error loading images: {e}")
+            self.images = {key: None for key in image_names}
 
     def create_button(self, parent, text, command, row, column, image):
         button_frame = ctk.CTkFrame(parent)
@@ -89,7 +111,7 @@ class MainGUI(ctk.CTk):
         label = ctk.CTkLabel(button_frame, image=image, text="")
         label.pack(pady=(0, 10))
 
-        button = ctk.CTkButton(button_frame, text=text, command=command,font=(FONT_FAMILY, 18))
+        button = ctk.CTkButton(button_frame, text=text, command=command, font=(FONT_FAMILY, 18))
         button.pack(pady=(0, 10), padx=10)
 
     def show_home_page(self):
@@ -97,7 +119,7 @@ class MainGUI(ctk.CTk):
             widget.destroy()
 
         # Welcome label
-        ctk.CTkLabel(self.main_frame, text="Airway Segmentator Home Page", font=(FONT_FAMILY, 20)).pack(pady=(20, 40))
+        ctk.CTkLabel(self.main_frame, text="Upper Airway Segmentation Tools Overview", font=(FONT_FAMILY, 20)).pack(pady=(25, 5))
 
         # Frame for buttons and images
         button_frame = ctk.CTkFrame(self.main_frame)
@@ -106,23 +128,30 @@ class MainGUI(ctk.CTk):
         # Load images
         self.load_images()
 
-        # AnonDtoN GUI button with image
-        self.create_button(button_frame, "DICOM to NIfTI Converter", self.launch_anon_dton_gui, 0, 0, self.anon_photo)
+        # Tool configuration
+        self.tools = [
+            {"name": "DICOM to NIfTI Converter", "command": self.launch_anon_dton_gui, "image": self.images.get("anon")},
+            {"name": "Airway Prediction", "command": self.launch_nnunet_gui, "image": self.images.get("nnunet")},
+            {"name": "Prediction to STL Converter", "command": self.launch_stl_converter_gui, "image": self.images.get("stl")},
+            {"name": "DICOM to STL Converter", "command": self.launch_D2S_converter_gui, "image": self.images.get("D2S")}
+        ]
 
-        # nnUNet GUI button with image
-        self.create_button(button_frame, "Airway Prediction", self.launch_nnunet_gui, 0, 1, self.nnunet_photo)
-
-        # NIfTI to STL button with image
-        self.create_button(button_frame, "Prediction to STL Converter", self.launch_stl_converter_gui, 0, 2, self.stl_photo)
-
-        # DICOM to STL button with image
-        self.create_button(button_frame, "DICOM to STL Converter", self.launch_D2S_converter_gui, 1, 1, self.D2S_photo)
+        # Create buttons dynamically from tools configuration (2 buttons on top row, 2 buttons on bottom row)
+        for i, tool in enumerate(self.tools):
+            row = 0 if i < 2 else 1
+            column = i % 2
+            self.create_button(button_frame, tool["name"], tool["command"], row, column, tool["image"])
 
     def switch_frame(self, new_frame_class):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
         new_frame = new_frame_class(self.main_frame, self.show_home_page)
         new_frame.pack(fill="both", expand=True)
+        # Reset window size to a fixed default value to prevent continuous expansion
+        self.update_idletasks()
+        self.update_idletasks()
+        window_width = 900
+        window_height = 650
 
     def launch_anon_dton_gui(self):
         self.switch_frame(AnonDtoNGUI)
@@ -138,4 +167,7 @@ class MainGUI(ctk.CTk):
 
 if __name__ == "__main__":
     app = MainGUI()
+    app.update_idletasks()
+    window_width = 900
+    window_height = 650
     app.mainloop()
