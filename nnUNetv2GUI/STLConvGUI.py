@@ -143,47 +143,52 @@ class STLConverterGUI(ctk.CTkFrame):
 
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
 
-    def create_widgets(self):
-        # Home button
-        if self.home_callback:
-            home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
-                                        font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
-            home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="w")
+    # def create_widgets(self):
+    #     # Configure the main frame to center the container
+    #     self.grid_columnconfigure(0, weight=1)
+    #     self.grid_rowconfigure(0, weight=1)
 
-        # Text widget
-        text_widget = ctk.CTkTextbox(self, wrap='word', height=200, width=600)
-        text_widget.insert("1.0", """\nNIfTI to STL Converter\n\n
-        - Click on 'Browse' to select the folder containing the segmentation files in NIfTI format.
-        - Browse to the folder where STL files will be saved.
-        - Click on 'Convert' to initialize the conversion.""")
-        text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=(10, 20))
-        text_widget.configure(state='disabled')  # Make the text widget read-only
+    #     # Container frame for central alignment
+    #     container = ctk.CTkFrame(self)
+    #     container.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")
+    #     container.grid_columnconfigure(0, weight=1)
+    #     container.grid_columnconfigure(1, weight=1)
 
-        # Input folder
-        ctk.CTkLabel(self, text="Segmentations Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=2, column=0, sticky="e", padx=10, pady=(10, 10))
-        ctk.CTkEntry(self, textvariable=self.input_path, width=400).grid(row=2, column=1, sticky="w")
-        ctk.CTkButton(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=2, column=2, sticky="w", padx=(10, 20))
+    #     # Instructions text widget
+    #     text_widget = ctk.CTkTextbox(container, wrap='word', height=200, width=600)
+    #     text_widget.insert("1.0", """\nNIfTI to STL Converter\n\n
+    #     - Click on 'Browse' to select the folder containing the segmentation files in NIfTI format.
+    #     - Browse to the folder where STL files will be saved.
+    #     - Click on 'Convert' to initialize the conversion.""")
+    #     text_widget.grid(row=0, column=0, columnspan=3, padx=20, pady=(10, 20))
+    #     text_widget.configure(state='disabled')  # Make the text widget read-only
 
-        # Output folder
-        ctk.CTkLabel(self, text="STL Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=3, column=0, sticky="e", padx=10, pady=(10, 10))
-        ctk.CTkEntry(self, textvariable=self.output_path, width=400).grid(row=3, column=1, sticky="w")
-        ctk.CTkButton(self, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=3, column=2, sticky="w", padx=(10, 20))
-        
-        # Convert button
-        ctk.CTkButton(self, text="Start", command=self.convert_files, fg_color='#2196F3', text_color='black', font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=4, column=1, sticky="ew", padx=(50, 50), pady=(10, 20))
+    #     # Input folder
+    #     ctk.CTkLabel(container, text="Segmentations Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=1, column=0, sticky="e", padx=10, pady=(10, 10))
+    #     ctk.CTkEntry(container, textvariable=self.input_path, width=400).grid(row=1, column=1, sticky="w")
+    #     ctk.CTkButton(container, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=1, column=2, sticky="w", padx=(10, 20))
 
-        # Open button
-        open_button = ctk.CTkButton(self, text="Open Results Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
-        open_button.grid(row=4, column=2, sticky="e", padx=(0, 80), pady=(0, 10))
+    #     # Output folder
+    #     ctk.CTkLabel(container, text="STL Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=2, column=0, sticky="e", padx=10, pady=(10, 10))
+    #     ctk.CTkEntry(container, textvariable=self.output_path, width=400).grid(row=2, column=1, sticky="w")
+    #     ctk.CTkButton(container, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=2, column=2, sticky="w", padx=(10, 20))
 
-if __name__ == "__main__":
-    ctk.set_appearance_mode("dark")  # Set the appearance mode to dark
-    ctk.set_default_color_theme("blue")  # Set the color theme to blue
+    #     # Convert button
+    #     ctk.CTkButton(container, text="Start", command=self.convert_files, fg_color='#2196F3', text_color='black', font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=3, column=1, sticky="ew", padx=(50, 50), pady=(10, 20))
 
-    root = ctk.CTk()
-    root.title("NIfTI to STL Converter")
-    root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")  # Set fixed geometry
-    root.resizable(False, False)  # Disable window resizing
-    app = STLConverterGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
-    app.pack(fill="both", expand=True)
-    root.mainloop()
+    #     # Open button
+    #     open_button = ctk.CTkButton(container, text="Open Results Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
+    #     open_button.grid(row=3, column=2, sticky="e", padx=(0, 80), pady=(0, 10))
+
+
+# if __name__ == "__main__":
+#     ctk.set_appearance_mode("dark")  # Set the appearance mode to dark
+#     ctk.set_default_color_theme("blue")  # Set the color theme to blue
+
+#     root = ctk.CTk()
+#     root.title("NIfTI to STL Converter")
+#     root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")  # Set fixed geometry
+#     root.resizable(False, False)  # Disable window resizing
+#     app = STLConverterGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
+#     app.pack(fill="both", expand=True)
+#     root.mainloop()

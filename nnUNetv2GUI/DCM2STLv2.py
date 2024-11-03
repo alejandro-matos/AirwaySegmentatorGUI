@@ -12,13 +12,11 @@ class AirwaySegmenterGUI(ctk.CTkFrame):
         self.parent = parent
         self.home_callback = home_callback
         
-        # Set the size of the frame to match the main window
-        self.configure(width=styles.WINDOW_WIDTH, height=styles.WINDOW_HEIGHT)
-
         self.input_path = ctk.StringVar()
         self.output_path = ctk.StringVar()
 
         self.create_widgets()
+        self.grid_columnconfigure(0, weight=1)
 
     def resource_path(self, relative_path):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -144,46 +142,56 @@ class AirwaySegmenterGUI(ctk.CTkFrame):
         messagebox.showinfo("Conversion Complete", "All NIfTI files have been converted to STL files.")
 
     def create_widgets(self):
-        # Home button
-        if self.home_callback:
-            home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
-                                        font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE))
-            home_button.grid(row=0, column=0, padx=(10, 20), pady=(10, 20), sticky="w")
+        # Main content frame
+        content_frame = ctk.CTkFrame(self)
+        content_frame.grid(row=1, column=0, sticky="", padx=20, pady=10)
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_rowconfigure(0, weight=1)
+
+        text_frame = ctk.CTkFrame(content_frame)
+        text_frame.grid(row=0, column=0, sticky="ew")
+        text_frame.grid_columnconfigure(0, weight=1)
 
         # Text widget
-        text_widget = ctk.CTkTextbox(self, wrap='word', height=200, width=600)
-        text_widget.insert("1.0", """\nNIfTI to STL Converter\n\n
-        - Click on 'Browse' to select the folder containing the segmentation files in NIfTI format.
+        text_widget = ctk.CTkTextbox(text_frame, wrap='word', height=styles.TEXTBOX_HEIGHT, width=styles.TEXTBOX_WIDTH)
+        text_widget.grid(row=0, column=0, sticky="nsew", padx=styles.PADDING_X, pady=styles.PADDING_Y)
+        text_widget.insert("1.0", """\nDICOM to STL Converter\n\n
+        - Click on 'Browse' to select the folder containing the patient files in DICOM format.
         - Browse to the folder where STL files will be saved.
         - Click on 'Convert' to initialize the conversion.""")
-        text_widget.grid(row=1, column=0, columnspan=3, padx=20, pady=(10, 20))
         text_widget.configure(state='disabled')  # Make the text widget read-only
 
-        # Input folder
-        ctk.CTkLabel(self, text="Segmentations Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=2, column=0, sticky="e", padx=10, pady=(10, 10))
-        ctk.CTkEntry(self, textvariable=self.input_path, width=400).grid(row=2, column=1, sticky="w")
-        ctk.CTkButton(self, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=2, column=2, sticky="w", padx=(10, 20))
+        # Prediction frame
+        prediction_frame = ctk.CTkFrame(text_frame)
+        prediction_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
+        prediction_frame.grid_columnconfigure(1, weight=1)
 
-        # Output folder
-        ctk.CTkLabel(self, text="STL Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=3, column=0, sticky="e", padx=10, pady=(10, 10))
-        ctk.CTkEntry(self, textvariable=self.output_path, width=400).grid(row=3, column=1, sticky="w")
-        ctk.CTkButton(self, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=3, column=2, sticky="w", padx=(10, 20))
-        
+        # Input folder section
+        ctk.CTkLabel(prediction_frame, text="DICOM Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=1, column=0, padx=10, pady=(10, 10), sticky="e")
+        ctk.CTkEntry(prediction_frame, textvariable=self.input_path, width=400).grid(row=1, column=1, padx=10, pady=(10, 10), sticky="ew")
+        ctk.CTkButton(prediction_frame, text="Browse", command=self.browse_input_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=1, column=2, padx=(10, 20), pady=(10, 10), sticky="w")
+
+        # Output folder section
+        ctk.CTkLabel(prediction_frame, text="STL Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=2, column=0, padx=10, pady=(10, 10), sticky="e")
+        ctk.CTkEntry(prediction_frame, textvariable=self.output_path, width=400).grid(row=2, column=1, padx=10, pady=(10, 10), sticky="ew")
+        ctk.CTkButton(prediction_frame, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=2, column=2, padx=(10, 20), pady=(10, 10), sticky="w")
+
         # Convert button
-        ctk.CTkButton(self, text="Start", command=self.convert_files, fg_color='#2196F3', text_color='black', font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=4, column=1, sticky="ew", padx=(50, 50), pady=(10, 20))
+        ctk.CTkButton(prediction_frame, text="Convert to STL", command=self.convert_files, font=(styles.FONT_FAMILY, styles.FONT_SIZE), width=120).grid(row=3, column=1, pady=(10, 20), sticky="ew")
 
-        # Open button
-        open_button = ctk.CTkButton(self, text="Open Results Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
-        open_button.grid(row=4, column=2, sticky="e", padx=(0, 80), pady=(0, 10))
+        # Open folder button
+        open_button = ctk.CTkButton(prediction_frame, text="Open Results Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
+        open_button.grid(row=3, column=2, padx=(0, 80), pady=(10, 20), sticky="w")
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark")  # Set the appearance mode to dark
     ctk.set_default_color_theme("blue")  # Set the color theme to blue
 
     root = ctk.CTk()
-    root.title("NIfTI to STL Converter")
-    root.geometry(f"{styles.WINDOW_WIDTH}x{styles.WINDOW_HEIGHT}")  # Set fixed geometry
-    root.resizable(False, False)  # Disable window resizing
-    app = STLConverterGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
+    root.title("DICOM to STL Converter")
+    root.geometry("900x00")  # Adjusted initial geometry for better display
+    root.resizable(True, True)  # Allow window resizing
+
+    app = AirwaySegmenterGUI(root, root.destroy)  # For standalone testing, 'home' button will close the app
     app.pack(fill="both", expand=True)
     root.mainloop()

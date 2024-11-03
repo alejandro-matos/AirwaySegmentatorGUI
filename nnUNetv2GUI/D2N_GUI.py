@@ -189,21 +189,16 @@ class AnonDtoNGUI(ctk.CTkFrame):
             self.start_number_entry.configure(state="disabled")
 
     def create_widgets(self):
-        # Home button
-        home_button = ctk.CTkButton(self, text="Home", command=self.home_callback, fg_color='#FF9800', text_color='white',
-                            font=(styles.FONT_FAMILY, styles.HOME_BUTTON_FONT_SIZE), width=styles.HOME_BUTTON_WIDTH, height=styles.HOME_BUTTON_HEIGHT)
-        home_button.grid(row=0, column=0, padx=(styles.PADDING_X, styles.PADDING_X), pady=(styles.PADDING_Y, styles.PADDING_Y), sticky="w")
-
 
         # Main content frame
         content_frame = ctk.CTkFrame(self)
         content_frame.grid(row=1, column=0, sticky="", padx=20, pady=10)
         content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(0, weight=1)
         content_frame.grid_rowconfigure(0, weight=1)
 
+        # For instructions
         text_frame = ctk.CTkFrame(content_frame)
-        text_frame.grid(row=0, column=0, sticky="nsew")
+        text_frame.grid(row=0, column=0, sticky="ew")
         text_frame.grid_columnconfigure(0, weight=1)
 
         # Text widget
