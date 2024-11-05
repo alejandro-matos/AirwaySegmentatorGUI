@@ -9,6 +9,7 @@ from STLConvGUI import STLConverterGUI
 from PIL import Image
 from styles import FONT_FAMILY, WINDOW_HEIGHT, WINDOW_WIDTH
 import logging
+import tkinter.font as tkFont
 
 # Setup logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -29,7 +30,12 @@ class MainGUI(ctk.CTk):
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("blue")
 
-        self.corner_image = None  # Create an instance variable to store the corner image
+        # Initialize button variables for easy access in update_active_tab
+        self.dicom_button = None
+        self.prediction_button = None
+        self.visualization_button = None
+
+        # self.corner_image = None  # Create an instance variable to store the corner image
 
         # Set the application icon
         self.set_window_icon()
@@ -56,15 +62,15 @@ class MainGUI(ctk.CTk):
         tab_button_frame = ctk.CTkFrame(self)
         tab_button_frame.pack(fill="x", pady=(4, 2))
 
-        # Tab buttons
-        dicom_button = ctk.CTkButton(tab_button_frame, text="DICOM Handling", command=self.show_dicom_handling_tab)
-        dicom_button.pack(side="left", padx=10, pady=10)
+        # Tab buttons with instance variables
+        self.dicom_button = ctk.CTkButton(tab_button_frame, text="DICOM Handling", command=self.show_dicom_handling_tab)
+        self.dicom_button.pack(side="left", padx=10, pady=10)
 
-        prediction_button = ctk.CTkButton(tab_button_frame, text="Airway Prediction & Export", command=self.show_prediction_tab)
-        prediction_button.pack(side="left", padx=10, pady=10)
+        self.prediction_button = ctk.CTkButton(tab_button_frame, text="Airway Prediction & Export", command=self.show_prediction_tab)
+        self.prediction_button.pack(side="left", padx=10, pady=10)
 
-        visualization_button = ctk.CTkButton(tab_button_frame, text="DICOM to STL", command=self.show_visualization_tab)
-        visualization_button.pack(side="left", padx=10, pady=10)
+        self.visualization_button = ctk.CTkButton(tab_button_frame, text="DICOM to STL", command=self.show_visualization_tab)
+        self.visualization_button.pack(side="left", padx=10, pady=10)
 
         # Main frames for each "tab"
         self.dicom_handling_frame = ctk.CTkFrame(self)
@@ -98,6 +104,19 @@ class MainGUI(ctk.CTk):
         except Exception as e:
             logging.error(f"Error loading corner image: {e}")
 
+    def update_active_tab(self, active_button):
+        """Reset all buttons to default color, and set active button to a lighter color."""
+        default_color = "#0e579e"  # Original blue color
+        active_color = "#70b4ff"     # Lighter blue for active tab
+        
+        # Reset all to default color
+        self.dicom_button.configure(fg_color=default_color)
+        self.prediction_button.configure(fg_color=default_color)
+        self.visualization_button.configure(fg_color=default_color)
+
+        # Set the active button to a lighter color
+        active_button.configure(fg_color=active_color)
+
     def setup_prediction_tab(self):
         # Prediction Tab Contents
         nnunet_button = ctk.CTkButton(self.prediction_frame, text="Run Prediction", command=self.launch_nnunet_gui)
@@ -112,6 +131,9 @@ class MainGUI(ctk.CTk):
         dicom_to_stl_button.pack(pady=10)
 
     def show_dicom_handling_tab(self):
+        # Update active tab color
+        self.update_active_tab(self.dicom_button)
+
         # Clear other frames and add DICOM handling frame
         self.prediction_frame.pack_forget()
         self.visualization_frame.pack_forget()
@@ -122,6 +144,10 @@ class MainGUI(ctk.CTk):
         self.dicom_handling_frame.pack(fill="both", expand=True)
 
     def show_prediction_tab(self):
+        # Update active tab color
+        self.update_active_tab(self.prediction_button)
+
+        # Clear other frames and add Prediction frame
         self.dicom_handling_frame.pack_forget()
         self.visualization_frame.pack_forget()
 
@@ -131,12 +157,16 @@ class MainGUI(ctk.CTk):
         self.prediction_frame.pack(fill="both", expand=True)
 
     def show_visualization_tab(self):
+         # Update active tab color
+        self.update_active_tab(self.visualization_button)
+
+        # Clear other frames and add Visualization frame
         self.dicom_handling_frame.pack_forget()
         self.prediction_frame.pack_forget()
 
         # Use AirwaySegmenterGUI (from DCM2STLv2) for 3D Visualization frame
         self.visualization_frame.pack_forget()  # Clear previous instance if any
-        self.visualization_frame = AirwaySegmenterGUI(self, self.show_prediction_tab)
+        self.visualization_frame = AirwaySegmenterGUI(self, self.show_visualization_tab)
         self.visualization_frame.pack(fill="both", expand=True)
 
     def launch_nnunet_gui(self):
