@@ -1,5 +1,7 @@
 import customtkinter as ctk
-from tkinter import messagebox, filedialog
+from tkinter import messagebox, filedialog, Text
+import webbrowser
+from tkinter.ttk import Progressbar
 import subprocess
 import threading
 import os
@@ -8,6 +10,11 @@ import sys
 import logging
 import styles
 from STLConvGUI import STLConverterGUI
+import csv
+import nibabel as nib
+import numpy as np
+
+
 
 # Set up logging with a detailed format
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -147,7 +154,86 @@ class nnUNetScript(ctk.CTkFrame):
                     logging.info(f"Renamed {file} to {new_name}")
                 else:
                     logging.info(f"Skipped renaming {file} as {new_name} already exists")
+    
+    def calculate_volume(self, file_format="txt"):
+        output_path = self.output_path.get()
 
+        if not output_path:
+            messagebox.showwarning("Input Error", "Please select a Predictions output directory.")
+            return
+
+        try:
+            # Collect volume results for each file
+            volume_results = []
+            for file in Path(output_path).glob("*.nii.gz"):
+                volume = self.calculate_volume_from_file(file)  # Calculate the volume for each file
+                volume_results.append((file.name, volume))  # Append filename and volume in ml
+
+            # Define file path based on selected format
+            if file_format == "txt":
+                file_path = Path(output_path) / "predicted_airways_volume.txt"
+                with open(file_path, "w") as f:
+                    f.write("Filename\tVolume (mm^3)\n")  # Add header for clarity
+                    for filename, volume in volume_results:
+                        f.write(f"{filename}\t{volume:.2f}\n")
+
+            elif file_format == "csv":
+                file_path = Path(output_path) / "predicted_airways_volume.csv"
+                with open(file_path, mode="w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Filename", "Volume (mm^3)"])  # Header
+                    writer.writerows(volume_results)
+
+            messagebox.showinfo("Volume Calculation", f"Volume calculation completed! Results saved to {file_path}")
+
+        except Exception as e:
+            logging.error("Error calculating volume: %s", str(e))
+            messagebox.showerror("Error", f"An error occurred while calculating volume: {str(e)}")
+
+    def calculate_volume_from_file(self, file_path, airway_label=1):
+        """
+        Calculate the volume of the airway from a NIfTI file.
+
+        Parameters:
+        - file_path (Path): Path to the .nii.gz file
+        - airway_label (int): Label used for the airway segmentation in the mask (default is 1)
+
+        Returns:
+        - total_volume (float): Volume in cubic millimeters
+        """
+        try:
+            # Load the NIfTI file
+            nifti_img = nib.load(file_path)
+            data = nifti_img.get_fdata()
+
+            # Log the affine matrix and zooms for debugging
+            affine = nifti_img.affine
+            voxel_sizes = nifti_img.header.get_zooms()  # Voxel dimensions in mm
+            logging.info(f"File: {file_path}")
+            logging.info(f"Affine matrix: \n{affine}")
+            logging.info(f"Voxel dimensions (in mm): {voxel_sizes}")
+
+            # Calculate the volume of a single voxel
+            voxel_volume = np.prod(voxel_sizes)  # Voxel volume in mm³
+            logging.info(f"Voxel volume: {voxel_volume:.2f} mm³")
+
+            # Count the number of voxels in the airway region
+            airway_voxel_count = np.sum(data == airway_label)
+            logging.info(f"Total airway voxel count for label {airway_label}: {airway_voxel_count}")
+
+            # Calculate total volume in mm³
+            total_volume_mm3 = airway_voxel_count * voxel_volume
+            logging.info(f"Calculated airway volume: {total_volume_mm3:.2f} mm³")
+
+            return total_volume_mm3
+
+        except Exception as e:
+            logging.error(f"Failed to calculate volume for {file_path}: {e}")
+            return 0  # Return 0 if there was an error
+    
+    # Function to open URL
+    def open_nnunet_link(event):
+        webbrowser.open_new("https://github.com/MIC-DKFZ/nnUNet")
     
     def create_widgets(self):
         # Main content frame
@@ -163,20 +249,32 @@ class nnUNetScript(ctk.CTkFrame):
         # Adjust the text widget width here
         text_widget = ctk.CTkTextbox(text_frame, wrap='word', height=styles.TEXTBOX_HEIGHT, width=styles.TEXTBOX_WIDTH)  # Width adjusted to match D2N_GUI
         text_widget.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        text_widget.insert("1.0", "Welcome to the nnUNet GUI\n\n"
-                            "    - Ensure your images are in NIfTI format.\n"
-                            "    - If your images are in DICOM format, convert them to NIfTI first using the DICOM to NIfTI Converter module.\n"
-                            "    - For other medical image formats, use 3D Slicer to convert to NIfTI: 3D SLICER\n\n"
-                            "Steps to start automatic segmentation:\n"
-                            "    - In the CBCT Folder line, click on 'Browse' and select the folder containing the CBCT images to be segmented.\n"
-                            "    - In the Predictions Folder line, click on 'Browse' and select the folder where the resulting segmentations are to be stored.\n"
-                            "    - Click on 'Run Prediction' to initialize automatic segmentation process. \n"
-                            "    - Wait for the notification \"Prediction has been completed!\" to signal the end of the prediction process\n"
-                            "       - Prediction time is roughly 12 minutes per CBCT.\n"
-                            "       - Total estimated time for completion = 12 minutes x (number of CBCTs). \n"
-                            "    - Click 'Open Predictions Folder' to see the segmented files.\n"
-                            "*For more information, visit the nnUNet GitHub page.*"
-                            )
+        text_widget.insert("1.0", 
+            "WELCOME TO THE NNUNET SEGMENTATION TOOL\n\n"
+            "1. PREPARE YOUR IMAGES\n"
+            "    - Ensure your images are in NIfTI format (.nii or .nii.gz).\n"
+            "    - If they are in DICOM format, use the DICOM to NIfTI Converter module first.\n"
+            "    - For other formats, you can use 3D Slicer to convert them to NIfTI.\n\n"
+            
+            "2. RUN AUTOMATIC SEGMENTATION\n"
+            "    - Under CBCT Folder, click 'Browse' to select the folder with the CBCT images you want to segment.\n"
+            "    - Under Predictions Folder, click 'Browse' to choose the folder where the segmented results will be saved.\n"
+            "    - Click 'Run Prediction' to start the segmentation process.\n"
+            "    - A notification will confirm when the prediction is complete.\n"
+            "    - Note: Each image takes from 3 to 10 minutes to process, depending on the file dimensions.\n\n"
+            
+            "3. CALCULATE AIRWAY VOLUMES\n"
+            "    - In the Volume Calculation section, choose the format for your volume list: TXT file or CSV file.\n"
+            "    - Click the corresponding button to calculate the volumes of the segmented airways and save them in the selected format in your Predictions Folder.\n"
+            "    - A notification will confirm when the volume calculation is complete, and the file will be ready for viewing.\n\n"
+            
+            "4. EXPORT SEGMENTED MODELS AS 3D STL FILES\n"
+            "    - In the 3D Model Output Folder section, click 'Browse' to select the folder where you want to save the STL files.\n"
+            "    - Click 'Generate 3D Models' to convert the segmented predictions into STL files, which can be used for 3D viewing or printing.\n"
+            "    - To view the STL files, click 'Open 3D Model Folder'.\n\n"
+            
+            # "*For further details, please visit the nnUNet GitHub page.*"
+        )
         text_widget.configure(state='disabled') # Make the text widget read-only
 
         # Prediction frame
@@ -184,7 +282,7 @@ class nnUNetScript(ctk.CTkFrame):
         prediction_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
         prediction_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(prediction_frame, text="Prediction Options", font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=1, column=0, columnspan=3, pady=(10, 10))
+        ctk.CTkLabel(prediction_frame, text="Prediction Options", font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=1, column=0, columnspan=4, pady=(5, 5))
 
         ctk.CTkLabel(prediction_frame, text="CBCT Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=2, column=0, padx=5, pady=5, sticky="w")
         ctk.CTkEntry(prediction_frame, textvariable=self.input_path).grid(row=2, column=1, padx=5, pady=5, sticky="ew")
@@ -199,13 +297,37 @@ class nnUNetScript(ctk.CTkFrame):
         # Run prediction button
         ctk.CTkButton(prediction_frame, text="Run Prediction", command=self.run_script, fg_color='#2196F3', text_color='white', font=(styles.FONT_FAMILY, styles.FONT_SIZE+2, 'bold'), width=120).grid(row=4, columnspan=4, pady=(10,10),sticky="")
 
-        # --- Start of STL Export Section ---
+        # --- New Volume Calculation Section ---
+        volume_frame = ctk.CTkFrame(text_frame)
+        volume_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=10)
+        # Configure column 1 to take up extra space, helping center the title but keeping buttons close
+        volume_frame.grid_columnconfigure(0, weight=1)
+        volume_frame.grid_columnconfigure(1, weight=0)  # Button columns remain fixed in width
+        volume_frame.grid_columnconfigure(2, weight=0)
+        volume_frame.grid_columnconfigure(3, weight=1)
+
+        # Centering the title by placing it in the middle column with a high columnspan
+        ctk.CTkLabel(volume_frame, text="Airway Volume Calculation", 
+                    font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=0, column=1, columnspan=2, pady=(5, 5), sticky="ew")
+
+        # Export options label
+        ctk.CTkLabel(volume_frame, text="Export Volume list as:", 
+                    font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=1, column=0, padx=5, pady=5, sticky="w")
+
+        # Calculate Volume buttons
+        ctk.CTkButton(volume_frame, text=".txt file", command=self.calculate_volume, 
+                    fg_color='#2196F3', text_color='white', font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=1, column=1, padx=5, pady=(10, 10), sticky="w")
+        ctk.CTkButton(volume_frame, text=".csv file", command=lambda: self.calculate_volume(file_format="csv"), 
+              fg_color='#2196F3', text_color='white', font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=1, column=2, padx=5, pady=(10, 10), sticky="w")
+        ctk.CTkButton(volume_frame, text="Open Predictions Folder", command=lambda: self.open_folder(self.output_path.get()), fg_color='#BA562E', text_color='white').grid(row=1, column=3, padx=5, pady=5, sticky='e')
+
+        # --- STL Export Section ---
         stl_frame = ctk.CTkFrame(text_frame)  # Place `stl_frame` inside `text_frame` to match width
-        stl_frame.grid(row=4, column=0, padx=10, pady=(10, 30), sticky="ew")
+        stl_frame.grid(row=4, column=0, padx=10, pady=(10, 20), sticky="ew")
         stl_frame.grid_columnconfigure(1, weight=1)
 
         # Section label
-        ctk.CTkLabel(stl_frame, text="Save Airway Predictions as 3D Models", font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=0, column=0, columnspan=3, pady=(10, 10))
+        ctk.CTkLabel(stl_frame, text="Save Airway Predictions as 3D Models", font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=0, column=0, columnspan=3, pady=(5, 5))
 
         # STL output folder
         ctk.CTkLabel(stl_frame, text="3D Model Output Folder:", font=(styles.FONT_FAMILY, styles.FONT_SIZE, 'bold')).grid(row=1, column=0, padx=5, pady=5, sticky="e")
@@ -213,9 +335,9 @@ class nnUNetScript(ctk.CTkFrame):
         ctk.CTkButton(stl_frame, text="Browse", command=self.browse_stl_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE), width=100).grid(row=1, column=2, padx=5, pady=5)
 
         # Convert to STL button
-        ctk.CTkButton(stl_frame, text="Generate 3D Models", command=self.convert_files_to_stl, fg_color='#2196F3', text_color='white',font=(styles.FONT_FAMILY, styles.FONT_SIZE+2, 'bold')).grid(row=2, columnspan=3, pady=(10, 10), sticky="")
+        ctk.CTkButton(stl_frame, text="Generate 3D Models", command=self.convert_files_to_stl, fg_color='#2196F3', text_color='white', font=(styles.FONT_FAMILY, styles.FONT_SIZE + 2, 'bold')).grid(row=2, columnspan=3, pady=(10, 10), sticky="")
 
-        # Open STL folder button with same width and alignment as Browse button
+        # Open STL folder button
         ctk.CTkButton(stl_frame, text="Open 3D Model Folder", command=lambda: self.open_folder(self.stl_output_path.get()), fg_color='#BA562E', font=(styles.FONT_FAMILY, styles.FONT_SIZE), width=100).grid(row=2, column=2, pady=5, padx=10)
 
     # Helper functions for STL path browsing and conversion
