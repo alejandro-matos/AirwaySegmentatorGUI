@@ -177,11 +177,11 @@ class AirwaySegmenterGUI(ctk.CTkFrame):
         ctk.CTkButton(prediction_frame, text="Browse", command=self.browse_output_path, font=(styles.FONT_FAMILY, styles.FONT_SIZE)).grid(row=2, column=2, padx=(10, 20), pady=(10, 10), sticky="w")
 
         # Convert button
-        ctk.CTkButton(prediction_frame, text="Convert to STL", command=self.convert_files, font=(styles.FONT_FAMILY, styles.FONT_SIZE), width=120).grid(row=3, column=1, pady=(10, 20), sticky="ew")
+        ctk.CTkButton(prediction_frame, text="Convert to STL", command=self.convert_files, fg_color='#2196F3', text_color='white', font=(styles.FONT_FAMILY, styles.FONT_SIZE+2, 'bold'), width=120).grid(row=3, column=1, pady=(10, 20), sticky="")
 
         # Open folder button
-        open_button = ctk.CTkButton(prediction_frame, text="Open Results Folder", command=self.open_folder, font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
-        open_button.grid(row=3, column=2, padx=(0, 80), pady=(10, 20), sticky="w")
+        open_button = ctk.CTkButton(prediction_frame, text="Open Results Folder", command=self.open_folder, fg_color='#BA562E', text_color='white', font=(styles.FONT_FAMILY, styles.BUTTON_FONT_SIZE-2))
+        open_button.grid(row=3, column=2, padx=(10, 20), pady=(10, 20), sticky="w")
 
 if __name__ == "__main__":
     ctk.set_appearance_mode("dark")  # Set the appearance mode to dark

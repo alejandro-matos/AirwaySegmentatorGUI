@@ -34,8 +34,7 @@ class MainGUI(ctk.CTk):
         self.dicom_button = None
         self.prediction_button = None
         self.visualization_button = None
-
-        # self.corner_image = None  # Create an instance variable to store the corner image
+        self.current_tab = None  # Track the currently active tab
 
         # Set the application icon
         self.set_window_icon()
@@ -131,6 +130,11 @@ class MainGUI(ctk.CTk):
         dicom_to_stl_button.pack(pady=10)
 
     def show_dicom_handling_tab(self):
+        # Check if this tab is already active
+        if self.current_tab == "dicom_handling":
+            return
+        self.current_tab = "dicom_handling"  # Set current tab
+        
         # Update active tab color
         self.update_active_tab(self.dicom_button)
 
@@ -144,6 +148,11 @@ class MainGUI(ctk.CTk):
         self.dicom_handling_frame.pack(fill="both", expand=True)
 
     def show_prediction_tab(self):
+        # Check if this tab is already active
+        if self.current_tab == "prediction":
+            return
+        self.current_tab = "prediction"  # Set current tab
+
         # Update active tab color
         self.update_active_tab(self.prediction_button)
 
@@ -157,7 +166,12 @@ class MainGUI(ctk.CTk):
         self.prediction_frame.pack(fill="both", expand=True)
 
     def show_visualization_tab(self):
-         # Update active tab color
+        # Check if this tab is already active
+        if self.current_tab == "visualization":
+            return
+        self.current_tab = "visualization"  # Set current tab
+
+        # Update active tab color
         self.update_active_tab(self.visualization_button)
 
         # Clear other frames and add Visualization frame
