@@ -13,6 +13,10 @@ class AnonDtoNGUI(ctk.CTkFrame):
         self.parent = parent
         self.home_callback = home_callback
 
+        # Set the color theme
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("blue")
+
 
         self.input_path = ctk.StringVar()
         self.output_path = ctk.StringVar()
