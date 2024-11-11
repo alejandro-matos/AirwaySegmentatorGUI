@@ -8,6 +8,8 @@ import subprocess
 import nibabel as nib
 import SimpleITK as sitk
 import pydicom
+import csv
+import numpy as np
 from nnUNetGUIv3 import nnUNetScript
 from D2N_GUI import AnonDtoNGUI
 from STLConvGUI import STLConverterGUI
@@ -87,9 +89,21 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         output_folder = os.path.join(parent_dir, f"{Path(input_folder).stem}_Processed")
         os.makedirs(output_folder, exist_ok=True)
 
+        # Step 1: Anonymize and Rename if selected
         if self.rename_files.get():
-            self.rename_files_in_folder(output_folder)  
-            
+            renamed_folder = os.path.join(output_folder, "Renamed_Anonymized")
+            os.makedirs(renamed_folder, exist_ok=True)
+            self.anonymize_and_rename_dicom_structure(input_folder, renamed_folder)
+            input_folder = renamed_folder  # Update input folder to renamed folder
+
+        # Step 2: Convert to NIfTI if selected
+        if self.convert_to_nifti.get():
+            nifti_folder = os.path.join(output_folder, "NIfTI_Converted")
+            os.makedirs(nifti_folder, exist_ok=True)
+            self.convert_dicom_to_nifti(input_folder, nifti_folder)
+            input_folder = nifti_folder  # Update input folder to NIfTI folder for further processing
+
+
         # Run nnUNet prediction if selected
         if self.run_prediction.get():
             # Determine nnUNet_IN based on file type and conversion setting
@@ -128,43 +142,98 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         messagebox.showinfo("Processing Complete", "All selected tasks have been completed.")
 
+    def contains_dicom_files(self, folder):
+        for item in os.listdir(folder):
+            item_path = os.path.join(folder, item)
+            
+            # Check if the item is a file
+            if os.path.isfile(item_path):
+                # Attempt to read the file as DICOM
+                try:
+                    pydicom.dcmread(item_path, stop_before_pixels=True)
+                    print(f"Identified as DICOM: {item_path}")
+                    return True
+                except pydicom.errors.InvalidDicomError:
+                    # Continue to check if the filename contains "DCM" if it's not valid DICOM
+                    pass
+
+                # Check if "DCM" is in the filename as an alternative identifier
+                if "DCM" in item.upper() and not item.startswith("._"):
+                    print(f"Filename suggests DICOM: {item_path}")
+                    return True
+
+        return False
+
     def anonymize_and_rename_dicom_structure(self, source_dir, destination_dir):
         start_number = self.starting_number.get()
         self.renamed_folders = {}  # Reset dictionary for each processing session
 
-        for patient_index, patient_folder in enumerate(os.listdir(source_dir), start=start_number):
-            patient_path = os.path.join(source_dir, patient_folder)
-            if os.path.isdir(patient_path):
-                patient_nickname = f"{self.data_nickname.get()}_{patient_index}"
-                self.renamed_folders[patient_folder] = patient_nickname  # Store original to new name mapping
+        # Path for the renaming log file
+        rename_log_path = os.path.join(destination_dir, "rename_log.txt")
+        with open(rename_log_path, 'w') as log_file:
+            log_file.write("Original Folder\tNew Folder\n")  # Header for clarity
 
-                contains_subdirs = any(os.path.isdir(os.path.join(patient_path, item)) for item in os.listdir(patient_path))
-                if contains_subdirs:
-                    for time_point in os.listdir(patient_path):
-                        time_point_path = os.path.join(patient_path, time_point)
-                        if os.path.isdir(time_point_path):
-                            time_point_nickname = f"{patient_nickname}_{time_point}"
-                            self.renamed_folders[os.path.join(patient_folder, time_point)] = time_point_nickname
-                            new_folder_path = os.path.join(destination_dir, time_point_nickname)
-                            os.makedirs(new_folder_path, exist_ok=True)
-                            self.process_dicom_files(time_point_path, new_folder_path, time_point_nickname)
-                else:
+            patient_folders = [
+                d for d in os.listdir(source_dir)
+                if os.path.isdir(os.path.join(source_dir, d))
+            ]
+            for patient_index, patient_folder in enumerate(patient_folders, start=start_number):
+                patient_path = os.path.join(source_dir, patient_folder)
+                patient_nickname = f"{self.data_nickname.get()}_{patient_index}"
+                self.renamed_folders[patient_folder] = patient_nickname  # Store original-to-new name mapping
+
+                # Log the renaming
+                log_file.write(f"{patient_folder}\t{patient_nickname}\n")
+
+                if self.contains_dicom_files(patient_path):
+                    # Process DICOM files in this folder and ignore subfolders
                     new_folder_path = os.path.join(destination_dir, patient_nickname)
                     os.makedirs(new_folder_path, exist_ok=True)
                     self.process_dicom_files(patient_path, new_folder_path, patient_nickname)
+                else:
+                    # Process subfolders
+                    subfolders = [
+                        d for d in os.listdir(patient_path)
+                        if os.path.isdir(os.path.join(patient_path, d))
+                    ]
+                    for time_point in subfolders:
+                        time_point_path = os.path.join(patient_path, time_point)
+                        time_point_nickname = f"{patient_nickname}_{time_point}"
+                        self.renamed_folders[os.path.join(patient_folder, time_point)] = time_point_nickname
+
+                        # Log the time-point renaming
+                        log_file.write(f"{os.path.join(patient_folder, time_point)}\t{time_point_nickname}\n")
+
+                        if self.contains_dicom_files(time_point_path):
+                            # Process DICOM files in the time point folder
+                            new_folder_path = os.path.join(destination_dir, time_point_nickname)
+                            os.makedirs(new_folder_path, exist_ok=True)
+                            self.process_dicom_files(time_point_path, new_folder_path, time_point_nickname)
+                        else:
+                            logging.warning(f"No DICOM files found in {time_point_path}. Skipping.")
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
         """
         Anonymize and rename DICOM files in a specified folder.
         """
-        for i, file_name in enumerate(os.listdir(input_folder)):
-            if file_name.lower().endswith(".dcm"):
-                input_file_path = os.path.join(input_folder, file_name)
-                anonymized_file_name = f"{patient_name}_{i + 1}.dcm"
+        file_index = 1  # Start numbering from 1 or any other desired start point
+        for file_name in os.listdir(input_folder):
+            input_file_path = os.path.join(input_folder, file_name)
+
+            # Skip if it's a directory or unwanted files
+            if os.path.isdir(input_file_path) or file_name.startswith("._") or file_name == ".DS_Store":
+                continue
+
+            # Process only DICOM files
+            if self.contains_dicom_files(input_folder):  # Check if file is a DICOM
+                anonymized_file_name = f"{patient_name}_{file_index}.dcm"
                 output_file_path = os.path.join(output_folder, anonymized_file_name)
                 
                 # Anonymize and rename each DICOM file
                 self.anonymize_dicom(input_file_path, output_file_path, patient_name)
+                file_index += 1  # Increment only for valid files
+
+
 
     def anonymize_dicom(self, input_file, output_file, patient_name):
         """
@@ -202,57 +271,50 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     if direction[8] < 0:
                         image = sitk.Flip(image, [False, False, True])
 
-                    # Choose filename based on whether renaming is enabled
-                    if self.rename_files.get():
-                        if time_point:
-                            nifti_filename = f"{patient_name}_{time_point}.nii.gz"
-                        else:
-                            nifti_filename = f"{patient_name}.nii.gz"
-                    else:
-                        # Use original folder names when renaming is disabled
-                        if time_point:
-                            nifti_filename = f"{patient_name}_{time_point}.nii.gz"
-                        else:
-                            nifti_filename = f"{patient_name}.nii.gz"
-                        
+                    nifti_filename = self.get_nifti_filename(patient_name, time_point, rename_enabled=self.rename_files.get())
                     nifti_path = os.path.join(nifti_folder, nifti_filename)
                     sitk.WriteImage(image, nifti_path)
                     logging.info(f"NIfTI file saved at: {nifti_path}")
 
             # Main conversion loop
-            for patient_folder in os.listdir(input_folder):
+            patient_folders = [
+                d for d in os.listdir(input_folder)
+                if os.path.isdir(os.path.join(input_folder, d))
+            ]
+            for patient_folder in patient_folders:
                 patient_path = os.path.join(input_folder, patient_folder)
-                if os.path.isdir(patient_path):
-                    # Use renamed name only if renaming is enabled
-                    if self.rename_files.get():
-                        patient_name = self.renamed_folders.get(patient_folder, patient_folder)
-                        if '_T' in patient_name:  # If the renamed folder already contains time point info
-                            patient_name = patient_name.split('_T')[0]  # Remove the time point part
-                    else:
-                        patient_name = patient_folder  # Use original folder name
-                    
-                    contains_subdirs = any(
-                        os.path.isdir(os.path.join(patient_path, item))
-                        for item in os.listdir(patient_path)
-                    )
 
-                    if contains_subdirs:
-                        for time_point in os.listdir(patient_path):
-                            time_point_path = os.path.join(patient_path, time_point)
-                            if os.path.isdir(time_point_path):
-                                # Use appropriate time point name based on renaming setting
-                                if self.rename_files.get():
-                                    if '_T' in time_point:
-                                        time_point = 'T' + time_point.split('_T')[1]
-                                process_dicom_series(time_point_path, patient_name, time_point=time_point)
-                    else:
-                        process_dicom_series(patient_path, patient_name)
+                # Determine patient name based on renaming
+                if self.rename_files.get():
+                    patient_name = self.renamed_folders.get(patient_folder, patient_folder)
+                else:
+                    patient_name = patient_folder
 
-            messagebox.showinfo("Conversion Complete", f"NIfTI files saved in: {nifti_folder}")
-
+                if self.contains_dicom_files(patient_path):
+                    # Process DICOM files in this folder and ignore subfolders
+                    process_dicom_series(patient_path, patient_name)
+                else:
+                    # Process subfolders
+                    subfolders = [
+                        d for d in os.listdir(patient_path)
+                        if os.path.isdir(os.path.join(patient_path, d))
+                    ]
+                    for time_point in subfolders:
+                        time_point_path = os.path.join(patient_path, time_point)
+                        if self.contains_dicom_files(time_point_path):
+                            # Determine time point name based on renaming
+                            if self.rename_files.get():
+                                time_point_name = f"{patient_name}_{time_point}"
+                            else:
+                                time_point_name = f"{patient_name}_{time_point}"
+                            process_dicom_series(time_point_path, patient_name, time_point=time_point)
+                        else:
+                            logging.warning(f"No DICOM files found in {time_point_path}. Skipping.")
         except Exception as e:
             logging.error(f"Error converting DICOM to NIfTI: {e}")
             messagebox.showerror("Conversion Error", f"Failed to convert DICOM to NIfTI. Error: {e}")
+
+
 
     def get_nifti_filename(self, patient_name, time_point=None, rename_enabled=False):
         """
