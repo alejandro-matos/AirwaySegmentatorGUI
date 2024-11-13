@@ -12,6 +12,7 @@ import csv
 import numpy as np
 from STLConvGUI import STLConverterGUI
 from tkinter.ttk import Progressbar
+import vtk
 # ----   Not used in this code (yet)  ----
 # from nnUNetGUIv3 import nnUNetScript
 # from D2N_GUI import AnonDtoNGUI
@@ -42,9 +43,10 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Path setup for nnUNet data
         self.parent_dir = Path(os.getcwd()).parent
         self.parent_of_parent_dir = self.parent_dir.parent
-        self.Path1 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_raw'
-        self.Path2 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_results'
-        self.Path3 = self.parent_of_parent_dir / 'Airways_v2' / 'nnUNet_preprocessed'
+        nnunet_folder = 'nnUNet_training_v2'
+        self.Path1 = self.parent_of_parent_dir / nnunet_folder / 'nnUNet_raw'
+        self.Path2 = self.parent_of_parent_dir / nnunet_folder / 'nnUNet_results'
+        self.Path3 = self.parent_of_parent_dir / nnunet_folder / 'nnUNet_preprocessed'
 
         # Set the color theme
         ctk.set_appearance_mode("dark")
@@ -104,10 +106,11 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # Step 1: Anonymize and Rename if selected
         if self.rename_files.get():
-            renamed_folder = os.path.join(output_folder, "Renamed_Anonymized")
+            renamed_folder = os.path.join(output_folder, "CBCT_Renamed_Anonymized")
             os.makedirs(renamed_folder, exist_ok=True)
             self.anonymize_and_rename_dicom_structure(input_folder, renamed_folder)
             input_folder = renamed_folder  # Update input folder to renamed folder
+
 
         # Step 2: Convert to NIfTI if selected
         if self.convert_to_nifti.get():
@@ -116,8 +119,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             self.convert_dicom_to_nifti(input_folder, nifti_folder)
             input_folder = nifti_folder  # Update input folder to NIfTI folder for further processing
 
-
-        # Run nnUNet prediction if selected
+        # Step 3: Run nnUNet prediction if selected
         if self.run_prediction.get():
              # Set prediction output folder
             prediction_folder = os.path.join(output_folder, "Predictions")
@@ -139,23 +141,21 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 messagebox.showerror("Error", "Files must be either in NIfTI format or converted to NIfTI from DICOM.")
                 return
 
-            #-- tk check this
-            self.run_nnunet_prediction(nnUNet_IN, prediction_folder)
+            self.run_nnunet_prediction(output_folder, nnUNet_IN, prediction_folder)
 
-        if self.calculate_volume.get():
-            volume_folder = os.path.join(output_folder, "Volume_Calculations")
-            os.makedirs(volume_folder, exist_ok=True)
-            if self.run_prediction.get():
-                self.calculate_airway_volumes(prediction_folder, volume_folder)
-            else:
+        # Added the else to do if not doing prediction
+        else:
+            # Step 4: If only volume calculation is selected, run it directly on the input folder
+            if self.calculate_volume.get():
+                volume_folder = os.path.join(output_folder, "Volume_Calculations")
+                os.makedirs(volume_folder, exist_ok=True)
                 self.calculate_airway_volumes(input_folder, volume_folder)
 
-        if self.export_stl.get():
-            stl_folder = os.path.join(output_folder, "STL_Exports")
-            os.makedirs(stl_folder, exist_ok=True)
-            self.export_predictions_to_stl(stl_folder)
-
-        messagebox.showinfo("Processing Complete", "All selected tasks have been completed.")
+            # Step 5: Create STL from prediction
+            if self.export_stl.get():
+                stl_folder = os.path.join(output_folder, "STL_Exports")
+                os.makedirs(stl_folder, exist_ok=True)
+                self.export_predictions_to_stl(input_folder, stl_folder)
 
     def contains_dicom_files(self, folder):
         for item in os.listdir(folder):
@@ -166,7 +166,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 # Attempt to read the file as DICOM
                 try:
                     pydicom.dcmread(item_path, stop_before_pixels=True)
-                    print(f"Identified as DICOM: {item_path}")
                     return True
                 except pydicom.errors.InvalidDicomError:
                     # Continue to check if the filename contains "DCM" if it's not valid DICOM
@@ -362,7 +361,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 logging.info(f"Renamed {file} to {new_name}")
 
     # ------------ NNUNET SECTION --------------------------------------
-    def run_nnunet_prediction(self, nnUNet_IN, nnUNet_OUT):
+    def run_nnunet_prediction(self, output_folder, nnUNet_IN, nnUNet_OUT):
         # Set up the loading dialog with a progress bar
         loading = ctk.CTkToplevel(self)
         loading.title('Processing')
@@ -391,7 +390,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             try:
                 result = subprocess.run([
                     'nnUNetv2_predict', '-i', nnUNet_IN, '-o', nnUNet_OUT,
-                    '-d', '13', '-c', '3d_fullres',
+                    '-d', '14', '-c', '3d_fullres', '-f', 'all',
                 ], capture_output=True, text=True)
 
                 logging.info('stdout: %s', result.stdout)
@@ -407,7 +406,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 logging.error("Unexpected error: %s", str(e))
                 messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
             finally:
+                # Rename file to include _seg
                 self.rename_output_files(nnUNet_OUT)
+                # Calculate volume if also selected, after prediction
+                if self.calculate_volume.get():
+                    volume_folder = os.path.join(output_folder, "Volume_Calculations")
+                    os.makedirs(volume_folder, exist_ok=True)
+                    self.calculate_airway_volumes(nnUNet_OUT, volume_folder)
+                if self.export_stl.get():
+                    stl_folder = os.path.join(output_folder, "STL_Exports")
+                    os.makedirs(stl_folder, exist_ok=True)
+                    self.export_predictions_to_stl(nnUNet_OUT, stl_folder)
                 progress.stop()
                 loading.destroy()
 
@@ -465,8 +474,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     writer.writerow(["Filename", "Volume (mm^3)"])
                     writer.writerows(volume_results)
 
-            messagebox.showinfo("Volume Calculation", f"Volume calculation completed! Results saved to {file_path}")
-
         except Exception as e:
             logging.error("Error in volume calculation: %s", e)
             messagebox.showerror("Error", f"Failed to save volume calculation results: {e}")
@@ -480,7 +487,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         - airway_label (int): Label used for the airway segmentation in the mask (default is 1)
 
         Returns:
-        - total_volume (float): Volume in cubic millimeters
+        - total_volume (float): Volume in ml^3
         """
         try:
             # Load the NIfTI file
@@ -511,11 +518,109 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         except Exception as e:
             logging.error(f"Failed to calculate volume for {file_path}: {e}")
             return 0  # Return 0 if there was an error
-
-    # Will do this later
-    def export_predictions_to_stl(self, folder):
-        STLConverterGUI(input_folder=folder).convert_files()
     
+    ## ------------------------------------------------------- ##
+    ## ------------ STL Creation ----------------------------- ##
+    ## ------------------------------------------------------- ##
+    def nifti_to_stl(self,nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
+        try:
+            # Load NIfTI file
+            reader = vtk.vtkNIFTIImageReader()
+            reader.SetFileName(nifti_file_path)
+            reader.Update()
+            
+            # Apply vtkDiscreteFlyingEdges3D
+            discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
+            discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
+            discrete_flying_edges.SetValue(0, threshold_value)
+            discrete_flying_edges.Update()
+            
+            output_polydata = discrete_flying_edges.GetOutput()
+
+            # Apply decimation if requested
+            if decimate:
+                decimator = vtk.vtkDecimatePro()
+                decimator.SetInputData(output_polydata)
+                decimator.SetTargetReduction(decimate_target_reduction)
+                decimator.PreserveTopologyOn()
+                decimator.Update()
+                output_polydata = decimator.GetOutput()
+
+            # Apply smoothing
+            smoothing_filter = vtk.vtkSmoothPolyDataFilter()
+            smoothing_filter.SetInputData(output_polydata)
+            smoothing_filter.SetNumberOfIterations(5)
+            smoothing_filter.SetRelaxationFactor(0.05)
+            smoothing_filter.FeatureEdgeSmoothingOff()
+            smoothing_filter.BoundarySmoothingOn()
+            smoothing_filter.Update()
+            output_polydata = smoothing_filter.GetOutput()
+
+            # Get QForm matrix
+            qform_matrix = reader.GetQFormMatrix()
+
+            # Create IJK to RAS transformation
+            ijk_to_ras = vtk.vtkMatrix4x4()
+            ijk_to_ras.DeepCopy(qform_matrix)
+
+            # Adjust for VTK's coordinate system
+            flip_xy = vtk.vtkMatrix4x4()
+            flip_xy.SetElement(0, 0, -1)
+            flip_xy.SetElement(1, 1, -1)
+
+            vtk.vtkMatrix4x4.Multiply4x4(flip_xy, ijk_to_ras, ijk_to_ras)
+
+            # Create transformation matrix
+            transform = vtk.vtkTransform()
+            transform.SetMatrix(ijk_to_ras)
+
+            # Apply transformation
+            transform_filter = vtk.vtkTransformPolyDataFilter()
+            transform_filter.SetInputData(output_polydata)
+            transform_filter.SetTransform(transform)
+            transform_filter.Update()
+            transformed_polydata = transform_filter.GetOutput()
+
+            # Compute normals
+            normals = vtk.vtkPolyDataNormals()
+            normals.SetInputData(transformed_polydata)
+            normals.SetFeatureAngle(60.0)
+            normals.ConsistencyOn()
+            normals.SplittingOff()
+            normals.Update()
+
+            # Write STL file
+            stl_writer = vtk.vtkSTLWriter()
+            stl_writer.SetFileTypeToBinary()
+            stl_writer.SetFileName(stl_file_path)
+            stl_writer.SetInputData(normals.GetOutput())
+            stl_writer.Write()
+
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file_path} to STL. Error: {e}")
+
+    def export_predictions_to_stl(self,input_path_str,output_path_str):
+
+        if not input_path_str or not output_path_str:
+            messagebox.showwarning("Input Error", "Please select both input and output directories.")
+            return
+
+        nifti_files = [f for f in os.listdir(input_path_str) if f.endswith('.nii') or f.endswith('.nii.gz')]
+        if not nifti_files:
+            messagebox.showwarning("Input Error", "No NIfTI files found in the selected input directory.")
+            return
+
+        for nifti_file in nifti_files:
+            nifti_file_path = os.path.join(input_path_str, nifti_file)
+            base_name = os.path.splitext(os.path.splitext(nifti_file)[0])[0]
+            stl_file_path = os.path.join(output_path_str, f"{base_name}.stl")
+            print(f"The base name is {base_name}")
+            print(f"The stl_file_path is {stl_file_path}")
+            self.nifti_to_stl(nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5)
+    
+    ## ------------------------------------------------------- ##
+    ## ------------ GUI Widgets ------------------------------ ##
+    ## ------------------------------------------------------- ##
     def create_widgets(self):
         # Instruction frame at the top
         instruction_frame = ctk.CTkFrame(self)
