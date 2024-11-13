@@ -84,14 +84,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             self.convert_switch.configure(state="normal")
             self.anonymize_rename_switch.configure(state="normal")
 
-    def update_nnunet_options(self):
-        """Enable volume calculation automatically if prediction is selected."""
-        if self.run_prediction.get():
-            self.volume_switch.configure(state="normal")
-            self.calculate_volume.set(True)
-        # else:
-            # self.volume_switch.configure(state="disabled")
-
     def browse_input_folder(self):
         folder = filedialog.askdirectory()
         if folder:
@@ -646,7 +638,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             "       * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
             "       * Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
             "       * Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
-            "       * Calculate Volume: Outputs volume data as .txt file that can be easily imported into Excel.\n"
+            "       * Calculate Volume: Creates a .txt file containing the volumes of the airway segmentations that can be easily imported into Excel.\n"
             "       * Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
             
             "     - Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
@@ -710,10 +702,8 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         self.start_number_entry.configure(state="disabled")
 
         # Additional task toggles
-        ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction, command=self.update_nnunet_options).grid(row=3, column=0, padx=20, pady=5, sticky="w") # Has the command to toggle on or off
-        # ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
-        self.volume_switch = ctk.CTkSwitch(task_frame, text="Calculate Volume", variable=self.calculate_volume)
-        self.volume_switch.grid(row=4, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Calculate Volume", variable=self.calculate_volume).grid(row=4, column=0, padx=20, pady=5, sticky="w")
         ctk.CTkSwitch(task_frame, text="Export as STL", variable=self.export_stl).grid(row=5, column=0, padx=20, pady=5, sticky="w")
 
         # Start button
