@@ -71,18 +71,26 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             self.nick_label_entry.configure(state="disabled")
             self.start_number_entry.configure(state="disabled")
 
-    def update_task_options(self, selected_file_type):
+    def update_file_options(self, selected_file_type):
         """Enable/Disable options based on the file type selected."""
         if selected_file_type == "NIfTI":
             # Disable anonymize checkboxes
             self.convert_switch.configure(state="disabled")
             self.convert_to_nifti.set(False)  # Uncheck if already checked
-            self.anonymize_rename_switch.configure(state="disabled")
-            self.rename_files.set(False)
+            # self.anonymize_rename_switch.configure(state="disabled")
+            # self.rename_files.set(False)
         else:
             # Enable anonymize checkboxes for DICOM
             self.convert_switch.configure(state="normal")
             self.anonymize_rename_switch.configure(state="normal")
+
+    def update_nnunet_options(self):
+        """Enable volume calculation automatically if prediction is selected."""
+        if self.run_prediction.get():
+            self.volume_switch.configure(state="normal")
+            self.calculate_volume.set(True)
+        # else:
+            # self.volume_switch.configure(state="disabled")
 
     def browse_input_folder(self):
         folder = filedialog.askdirectory()
@@ -122,7 +130,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Step 3: Run nnUNet prediction if selected
         if self.run_prediction.get():
              # Set prediction output folder
-            prediction_folder = os.path.join(output_folder, "Predictions")
+            prediction_folder = os.path.join(output_folder, "Segmentation")
             os.makedirs(prediction_folder, exist_ok=True)
             # Determine nnUNet_IN based on file type and conversion setting
             if self.file_type.get() == "NIfTI":
@@ -408,11 +416,9 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             finally:
                 # Rename file to include _seg
                 self.rename_output_files(nnUNet_OUT)
-                # Calculate volume if also selected, after prediction
-                if self.calculate_volume.get():
-                    volume_folder = os.path.join(output_folder, "Volume_Calculations")
-                    os.makedirs(volume_folder, exist_ok=True)
-                    self.calculate_airway_volumes(nnUNet_OUT, volume_folder)
+                self.remove_nnunet_internal(nnUNet_OUT)
+                # Calculate volume also, after prediction
+                self.calculate_airway_volumes(nnUNet_OUT, output_folder)
                 if self.export_stl.get():
                     stl_folder = os.path.join(output_folder, "STL_Exports")
                     os.makedirs(stl_folder, exist_ok=True)
@@ -449,6 +455,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 else:
                     logging.info(f"Skipped renaming {file} as {new_name} already exists")
     
+    def remove_nnunet_internal(self, nnUNet_OUT):
+        # Loop through all files in the specified nnUNet_OUT
+        for filename in os.listdir(nnUNet_OUT):
+            # Check if the file ends with .json
+            if filename.endswith('.json'):
+                # Construct the full file path
+                file_path = os.path.join(nnUNet_OUT, filename)
+                # Remove the file
+                os.remove(file_path)
+                print(f"Removed: {file_path}")
+    
     # Need to check if it works when starting from prediction all the way to volume calc and with multiple files
     def calculate_airway_volumes(self, input_path, output_path, file_format="txt"):
         if not os.path.exists(input_path):
@@ -461,18 +478,11 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             volume_results.append((file.name, volume))
 
         try:
-            if file_format == "txt":
-                file_path = Path(output_path) / "predicted_airways_volume.txt"
-                with open(file_path, "w") as f:
-                    f.write("Filename\tVolume (mm^3)\n")
-                    for filename, volume in volume_results:
-                        f.write(f"{filename}\t{volume:.2f}\n")
-            elif file_format == "csv":
-                file_path = Path(output_path) / "predicted_airways_volume.csv"
-                with open(file_path, mode="w", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["Filename", "Volume (mm^3)"])
-                    writer.writerows(volume_results)
+            file_path = Path(output_path) / "Volume Calculations.txt"
+            with open(file_path, "w") as f:
+                f.write("Filename\tVolume (mm^3)\n")
+                for filename, volume in volume_results:
+                    f.write(f"{filename}\t{volume:.2f}\n")
 
         except Exception as e:
             logging.error("Error in volume calculation: %s", e)
@@ -627,27 +637,25 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         instruction_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
         instruction_frame.grid_columnconfigure(0, weight=1)
         instruction_text = (
-            "Instructions\n\n"
-            "This program automatically detects if files are in a single list or organized by patient with multiple time points (e.g., T1, T2, T3).\n"
-            "Outputs will be automatically ordered and labeled accordingly (e.g., P1T1, P1T2, P1T3). If the 'Rename files' option is selected, a text file will be generated, \n"
-            "listing the original names and corresponding new names for each patient and time point.\n\n"
+            "     Instructions\n\n"
+            "     This program automatically detects if files are in a single list or organized by patient with multiple time points (e.g., T1, T2, T3).\n"
+            "     Outputs will be automatically ordered and labeled accordingly (e.g., P1T1, P1T2, P1T3). If the 'Rename files' option is selected, a text file will be generated, \n"
+            "     listing the original names and corresponding new names for each patient and time point.\n\n"
             
-            "- Select tasks to perform:\n"
-            "  * Anonymize: Removes personal information from DICOM files.\n"
-            "  * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
-            "  * Rename files: Applies a uniform name starting from a specified number.\n"
-            "  * Run Prediction: Segments airways (3-12 mins per file).\n"
-            "  * Calculate Volume: Outputs volume data as CSV.\n"
-            "  * Export as STL: Saves 3D STL files of predictions.\n\n"
+            "     - Select tasks to perform:\n"
+            "       * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
+            "       * Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
+            "       * Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
+            "       * Calculate Volume: Outputs volume data as .txt file that can be easily imported into Excel.\n"
+            "       * Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
             
-            "- Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
-            "  * Anonymized DICOM files, Converted NIfTI files, Renamed files\n"
-            "  * Predictions, Volume CSVs, STL exports\n\n"
+            "     - Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
+            "       * CBCT_Renamed_Anonymized, NIfTI_Converted, Predictions, STL_Exports, Volume_Calculations\n\n"
             
-            "- Additional information:\n"
-            "  * Input files can be in DICOM or NIfTI format; outputs will be saved in NIfTI format.\n\n"
+            "     - Additional information:\n"
+            "       * Input files can be in DICOM or NIfTI format; outputs will be saved in NIfTI format.\n\n"
             
-            "- After making your selections, click 'Start Processing' to begin."
+            "     - After making your selections, click 'Start Processing' to begin."
         )
 
 
@@ -665,7 +673,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # File Type Selection
         ctk.CTkLabel(path_frame, text="Starting File Type:").grid(row=2, column=0, padx=(0, 10), pady=5,  sticky="w")
-        file_type_menu = ctk.CTkOptionMenu(path_frame, variable=self.file_type, values=["DICOM", "NIfTI"], command=self.update_task_options)
+        file_type_menu = ctk.CTkOptionMenu(path_frame, variable=self.file_type, values=["DICOM", "NIfTI"], command=self.update_file_options)
         file_type_menu.grid(row=2, column=1, sticky="w")
 
         # Task selection frame
@@ -702,8 +710,10 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         self.start_number_entry.configure(state="disabled")
 
         # Additional task toggles
-        ctk.CTkSwitch(task_frame, text="Run Prediction", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
-        ctk.CTkSwitch(task_frame, text="Calculate Volume", variable=self.calculate_volume).grid(row=4, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction, command=self.update_nnunet_options).grid(row=3, column=0, padx=20, pady=5, sticky="w") # Has the command to toggle on or off
+        # ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        self.volume_switch = ctk.CTkSwitch(task_frame, text="Calculate Volume", variable=self.calculate_volume)
+        self.volume_switch.grid(row=4, column=0, padx=20, pady=5, sticky="w")
         ctk.CTkSwitch(task_frame, text="Export as STL", variable=self.export_stl).grid(row=5, column=0, padx=20, pady=5, sticky="w")
 
         # Start button
