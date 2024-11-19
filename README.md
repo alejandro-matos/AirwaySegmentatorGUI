@@ -1,5 +1,5 @@
 # UpperAirwaySegmentator GUI: A User-Friendly Tool for Airway Segmentation
-<img src="https://github.com/alejandro-matos/AirwaySegmentatorGUI/raw/main/nnUNetv2GUI/Images/GUI_Screenshot.png" width="700"/>
+<img src="https://github.com/alejandro-matos/AirwaySegmentatorGUI/raw/main/nnUNetv2GUI/Images/GUI_Screenshot.png" width="900"/>
 
  This Graphical User Interface (GUI) provides a streamlined workflow for converting medical imaging data and generating 3D models of the upper airway. With just a few clicks, you can: 
  1. **Convert DICOM to NIfTI**: Easily transform your DICOM images into the NIfTI file format, a common standard for medical image analysis.
