@@ -8,7 +8,6 @@ import subprocess
 import nibabel as nib
 import SimpleITK as sitk
 import pydicom
-import csv
 import numpy as np
 from STLConvGUI import STLConverterGUI
 from tkinter.ttk import Progressbar
@@ -107,10 +106,13 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # Step 1: Anonymize and Rename if selected
         if self.rename_files.get():
-            renamed_folder = os.path.join(output_folder, "CBCT_Renamed_Anonymized")
+            renamed_folder = os.path.join(output_folder, "Renamed_Anonymized")
             os.makedirs(renamed_folder, exist_ok=True)
-            self.anonymize_and_rename_dicom_structure(input_folder, renamed_folder)
-            input_folder = renamed_folder  # Update input folder to renamed folder
+            if self.file_type.get() == "NIfTI":
+                self.rename_nifti_structure(input_folder, renamed_folder)
+            else:
+                self.anonymize_and_rename_dicom_structure(input_folder, renamed_folder)
+                input_folder = renamed_folder  # Update input folder to renamed folder
 
 
         # Step 2: Convert to NIfTI if selected
@@ -123,7 +125,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Step 3: Run nnUNet prediction if selected
         if self.run_prediction.get():
              # Set prediction output folder
-            prediction_folder = os.path.join(output_folder, "Segmentation")
+            prediction_folder = os.path.join(output_folder, "Segmentations")
             os.makedirs(prediction_folder, exist_ok=True)
             # Determine nnUNet_IN based on file type and conversion setting
             if self.file_type.get() == "NIfTI":
@@ -148,9 +150,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         else:
             # Step 4: If only volume calculation is selected, run it directly on the input folder
             if self.calculate_volume.get():
-                volume_folder = os.path.join(output_folder, "Volume_Calculations")
-                os.makedirs(volume_folder, exist_ok=True)
-                self.calculate_airway_volumes(input_folder, volume_folder)
+                self.calculate_airway_volumes(input_folder, output_folder)
 
             # Step 5: Create STL from prediction
             if self.export_stl.get():
@@ -180,7 +180,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         return False
 
     def anonymize_and_rename_dicom_structure(self, source_dir, destination_dir):
-        start_number = self.starting_number.get()
+        global_index = self.starting_number.get()  # Start numbering from the specified start number
         self.renamed_folders = {}  # Reset dictionary for each processing session
 
         # Path for the renaming log file
@@ -188,44 +188,54 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         with open(rename_log_path, 'w') as log_file:
             log_file.write("Original Folder\tNew Folder\n")  # Header for clarity
 
+            # Process each patient folder
             patient_folders = [
                 d for d in os.listdir(source_dir)
                 if os.path.isdir(os.path.join(source_dir, d))
             ]
-            for patient_index, patient_folder in enumerate(patient_folders, start=start_number):
+            for patient_folder in patient_folders:
                 patient_path = os.path.join(source_dir, patient_folder)
-                patient_nickname = f"{self.data_nickname.get()}_{patient_index}"
-                self.renamed_folders[patient_folder] = patient_nickname  # Store original-to-new name mapping
 
-                # Log the renaming
-                log_file.write(f"{patient_folder}\t{patient_nickname}\n")
-
+                # Check if the folder contains DICOM files directly (list structure)
                 if self.contains_dicom_files(patient_path):
-                    # Process DICOM files in this folder and ignore subfolders
-                    new_folder_path = os.path.join(destination_dir, patient_nickname)
+                    # List structure: DICOMs are directly within the patient folder
+                    new_folder_path = os.path.join(destination_dir, f"{self.data_nickname.get()}_{global_index}")
                     os.makedirs(new_folder_path, exist_ok=True)
-                    self.process_dicom_files(patient_path, new_folder_path, patient_nickname)
+
+                    # Process and rename DICOM files using Nickname_global_index format
+                    self.process_dicom_files(patient_path, new_folder_path, f"{self.data_nickname.get()}_{global_index}")
+
+                    # Log the renaming for each scan in list structure
+                    log_file.write(f"{patient_folder}\t{self.data_nickname.get()}_{global_index}\n")
+
+                    # Increment the global index for each scan
+                    global_index += 1
                 else:
-                    # Process subfolders
+                    # Tree structure: process subfolders (time points) within the patient folder
                     subfolders = [
                         d for d in os.listdir(patient_path)
                         if os.path.isdir(os.path.join(patient_path, d))
                     ]
                     for time_point in subfolders:
                         time_point_path = os.path.join(patient_path, time_point)
-                        time_point_nickname = f"{patient_nickname}_{time_point}"
+
+                        # Assign a unique name based on the global index for each time point
+                        time_point_nickname = f"{self.data_nickname.get()}_{global_index}"
                         self.renamed_folders[os.path.join(patient_folder, time_point)] = time_point_nickname
 
-                        # Log the time-point renaming
+                        # Log the renaming with the unique global index
                         log_file.write(f"{os.path.join(patient_folder, time_point)}\t{time_point_nickname}\n")
 
                         if self.contains_dicom_files(time_point_path):
-                            # Process DICOM files in the time point folder
+                            # Create a separate folder for each time point
                             new_folder_path = os.path.join(destination_dir, time_point_nickname)
                             os.makedirs(new_folder_path, exist_ok=True)
+
+                            # Process and rename DICOM files within each time point using Nickname_global_index
                             self.process_dicom_files(time_point_path, new_folder_path, time_point_nickname)
-                        else:
-                            logging.warning(f"No DICOM files found in {time_point_path}. Skipping.")
+
+                        # Increment the global index after each time point
+                        global_index += 1
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
         """
@@ -263,6 +273,39 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             if tag in dataset:
                 dataset.data_element(tag).value = value
         dataset.save_as(output_file)
+
+    def rename_nifti_structure(self, source_dir, destination_dir):
+        global_index = self.starting_number.get()  # Start numbering from the specified start number
+        self.renamed_files = {}  # Reset dictionary for each processing session
+
+        # Path for the renaming log file
+        rename_log_path = os.path.join(destination_dir, "rename_log.txt")
+        os.makedirs(destination_dir, exist_ok=True)  # Ensure the destination directory exists
+
+        with open(rename_log_path, 'w') as log_file:
+            log_file.write("Original File\tNew File\n")  # Header for clarity
+
+            # Traverse the source directory, including subdirectories if present
+            for root, _, files in os.walk(source_dir):
+                for file_name in files:
+                    if file_name.endswith('.nii.gz'):
+                        input_file_path = os.path.join(root, file_name)
+                        
+                        # Construct the new name with the global index
+                        new_file_name = f"{self.data_nickname.get()}_{global_index}.nii.gz"
+                        new_file_path = os.path.join(destination_dir, new_file_name)
+                        
+                        # Copy the file to the destination with the new name by reading and writing in binary mode
+                        with open(input_file_path, 'rb') as f_src:
+                            with open(new_file_path, 'wb') as f_dst:
+                                f_dst.write(f_src.read())
+                        
+                        # Log only the original file name and new file name
+                        log_file.write(f"{file_name}\t{new_file_name}\n")
+
+                        # Increment the global index for each NIfTI file
+                        global_index += 1
+
 
     def convert_dicom_to_nifti(self, input_folder, output_folder):
         try:
@@ -750,10 +793,10 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         #     "     listing the original names and corresponding new names for each patient and time point.\n\n"
             
         #     "     - Select tasks to perform:\n"
-        #     "       * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
-        #     "       * Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
+        #     "       * Convert to NIfTI: Converts DICOM (DCM or .dcm) files to compact NIfTI (.nii.gz) format.\n"
+        #     "       * Anonymize and Rename: Removes identifying information from DCM file metadata, applies user-specified name and numbering to all files.\n"
         #     "       * Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
-        #     "       * Calculate Volume: Creates a .txt file containing the volumes of the airway segmentations that can be easily imported into Excel.\n"
+        #     "       * Calculate Volume: Creates a .txt file containing the volumes of the upper airway segmentations that can be esasily imported into Excel.\n"
         #     "       * Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
             
         #     "     - Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
@@ -801,13 +844,13 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         self.anonymize_rename_switch.grid(row=2, column=0, sticky="w", pady=5, padx=20)
 
         # Name to be applied label and entry
-        nick_label = ctk.CTkLabel(task_frame, text="Name to be applied:")
+        nick_label = ctk.CTkLabel(task_frame, text="New File Name:")
         nick_label.grid(row=2, column=1, sticky="", pady=5, padx=(10, 5))
         self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150)
         self.nick_label_entry.grid(row=2, column=2, sticky="w", pady=5)
         
         # Starting number label and entry
-        start_number_label = ctk.CTkLabel(task_frame, text="Starting number:")
+        start_number_label = ctk.CTkLabel(task_frame, text="Starting Number:")
         start_number_label.grid(row=2, column=3, sticky="", pady=5, padx=(10, 5))
         self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100)
         self.start_number_entry.grid(row=2, column=4, sticky="w", pady=5)
@@ -817,9 +860,9 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         self.start_number_entry.configure(state="disabled")
 
         # Additional task toggles
-        ctk.CTkSwitch(task_frame, text="Upper Airway Segmentation", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
-        ctk.CTkSwitch(task_frame, text="Calculate Volume", variable=self.calculate_volume).grid(row=4, column=0, padx=20, pady=5, sticky="w")
-        ctk.CTkSwitch(task_frame, text="Export as STL", variable=self.export_stl).grid(row=5, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Segment (Predict) Upper Airway", variable=self.run_prediction).grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Calculate Segmentation Volume", variable=self.calculate_volume).grid(row=4, column=0, padx=20, pady=5, sticky="w")
+        ctk.CTkSwitch(task_frame, text="Export Segmentation as STL", variable=self.export_stl).grid(row=5, column=0, padx=20, pady=5, sticky="w")
 
         # Start button
         ctk.CTkButton(self, text="Start Processing", command=self.start_processing).grid(row=3, column=0, pady=12)
