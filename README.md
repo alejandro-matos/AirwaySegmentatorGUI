@@ -1,13 +1,16 @@
 # UpperAirwaySegmentator GUI: A User-Friendly Tool for Airway Segmentation
-![image](https://github.com/alejandro-matos/AirwaySegmentatorGUI/assets/84166343/24214a16-b97b-44d5-a6ec-eaa5a7d0f241)
+<img src="https://github.com/alejandro-matos/AirwaySegmentatorGUI/raw/main/Images/GUI_Screenshot.png" width="700"/>
 
  This Graphical User Interface (GUI) provides a streamlined workflow for converting medical imaging data and generating 3D models of the upper airway. With just a few clicks, you can: 
  1. **Convert DICOM to NIfTI**: Easily transform your DICOM images into the NIfTI file format, a common standard for medical image analysis.
- 2. **Automatic Airway Segmentation**: Leverage the power of the "AirwaySegmentor" neural network model, trained using the nnUNet framework, to automatically segment the upper airway from your CBCT scans.
- 3. **Generate STL Models**: Convert the resulting segmentations into STL files, a widely-used format for 3D printing and computer-aided design (CAD) applications. With its intuitive interface and automated processes, the nnUNet GUI simplifies the complex task of airway segmentation, enabling researchers, clinicians, and engineers to easily extract and visualize 3D models of the upper airway from medical imaging data.
+ 2. **Anonymize and Rename files**: Easily transform your DICOM images into the NIfTI file format, a common standard for medical image analysis.
+ 3. **Automatic Airway Segmentation**: Leverage the power of the "AirwaySegmentor" neural network model, trained using the nnUNet framework, to automatically segment the upper airway from CBCT scans.
+ 4. **Generate STL Models**: Convert the resulting segmentations into STL files, a widely-used format for 3D printing and computer-aided design (CAD) applications. 
+ 
+ With its intuitive interface and automated processes, the nnUNet GUI simplifies the complex task of airway segmentation, enabling researchers, clinicians, and engineers to easily extract and visualize 3D models of the upper airway from medical imaging data.
 
 ## UpperAirwaySegmentator Model
-UpperAirwaySegmentator is based on nnUNet framework. The Upper Airway (UA) of 75 CBCTs coming from the University of Alberta were manually segmented. 40 of these CBCT sets were randomly selected for training, while the remaining 35 were used for testing its performance.
+UpperAirwaySegmentator is based on nnUNet framework. The Upper Airway (UA) of 220 CBCTs coming from the University of Alberta, Chile and France were manually segmented. 155 of these CBCT sets were randomly selected for training, while the remaining 65 were used for testing its performance.
 
 If you use UpperAirwaySegmentator for your work, please cite our paper and nnU-Net:
 

@@ -53,6 +53,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         # Build the interface
+        self.create_instruction_frame()  # Call the instruction frame function
         self.create_widgets()
         # Adjust grid configuration for vertical centering
         self.grid_columnconfigure(0, weight=1)
@@ -623,35 +624,149 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
     ## ------------------------------------------------------- ##
     ## ------------ GUI Widgets ------------------------------ ##
     ## ------------------------------------------------------- ##
-    def create_widgets(self):
-        # Instruction frame at the top
+    def create_instruction_frame(self):
         instruction_frame = ctk.CTkFrame(self)
         instruction_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
         instruction_frame.grid_columnconfigure(0, weight=1)
-        instruction_text = (
-            "     Instructions\n\n"
-            "     This program automatically detects if files are in a single list or organized by patient with multiple time points (e.g., T1, T2, T3).\n"
-            "     Outputs will be automatically ordered and labeled accordingly (e.g., P1T1, P1T2, P1T3). If the 'Rename files' option is selected, a text file will be generated, \n"
-            "     listing the original names and corresponding new names for each patient and time point.\n\n"
+
+        # Title
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="Instructions for Using the Upper Airway Segmentation Tool",
+            font=("Arial", 16, "bold"),  # Bold for the title
+            anchor="w"
+        ).grid(row=0, column=0, sticky="w", pady=(0, 0))
+
+        # Step 1
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="1. Understand the Workflow:",
+            font=("Arial", 12, "bold"),  # Bold for section headings
+            anchor="w"
+        ).grid(row=1, column=0, sticky="w", pady=(0, 0))
+
+        ctk.CTkLabel(
+            instruction_frame, 
+            text=(
+                "- Files to be converted can be organized as:\n"
+                "       • A single list of files.\n"
+                "       • Grouped by patient with multiple time points within each patient folder (e.g., T1, T2, T3).\n"
+                "- Outputs will be ordered and labeled for easy identification (e.g., P1T1, P1T2).\n"
+                "- If 'Rename Files' is selected, a log file called 're' tracks name changes."
+            ),
+            font=("Arial", 11),  # Normal font for text
+            anchor="w",
+            justify="left"
+        ).grid(row=2, column=0, sticky="w", padx=10)
+
+        # Step 2
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="2. Available Tasks:",
+            font=("Arial", 12, "bold"),  # Bold for section headings
+            anchor="w"
+        ).grid(row=3, column=0, sticky="w", pady=(0, 0))
+
+        ctk.CTkLabel(
+            instruction_frame, 
+            text=(
+                "- Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
+                "- Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
+                "- Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
+                "- Calculate Volume: Creates a .txt file containing the volumes of the airway segmentations that can be easily imported into Excel.\n"
+                "- Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
+            ),
+            font=("Arial", 11),  # Normal font for text
+            anchor="w",
+            justify="left"
+        ).grid(row=4, column=0, sticky="w", padx=10)
+
+        # Step 3
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="3. Folder Structure:",
+            font=("Arial", 12, "bold"),  # Bold for section headings
+            anchor="w"
+        ).grid(row=5, column=0, sticky="w", pady=(0, 0))
+
+        ctk.CTkLabel(
+            instruction_frame, 
+            text=(
+                "- Select the input folder with 'Browse'.\n"
+                "- Subfolders are created as needed, such as: CBCT_Renamed_Anonymized, NIfTI_Converted, Predictions, STL_Exports, Volume_Calculations"),
+            font=("Arial", 11),  # Normal font for text
+            anchor="w",
+            justify="left"
+        ).grid(row=6, column=0, sticky="w", padx=10)
+
+        # Step 4
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="4. File Format Compatibility:",
+            font=("Arial", 12, "bold"),  # Bold for section headings
+            anchor="w"
+        ).grid(row=7, column=0, sticky="w", pady=(0, 0))
+
+        ctk.CTkLabel(
+            instruction_frame, 
+            text=(
+                "- Input files can be either DICOM or NIfTI.\n"
+                "- All outputs are saved in NIfTI format for further processing."
+            ),
+            font=("Arial", 11),  # Normal font for text
+            anchor="w",
+            justify="left"
+        ).grid(row=8, column=0, sticky="w", padx=10)
+
+        # Step 5
+        ctk.CTkLabel(
+            instruction_frame, 
+            text="5. Start Processing:",
+            font=("Arial", 12, "bold"),  # Bold for section headings
+            anchor="w"
+        ).grid(row=9, column=0, sticky="w", pady=(0, 0))
+
+        ctk.CTkLabel(
+            instruction_frame, 
+            text=(
+                "- Configure the options you need by selecting the desired tasks.\n"
+                "- After setup, click 'Start Processing' to begin.\n"
+                "- The tool will guide you through the steps and log the progress."
+            ),
+            font=("Arial", 11),  # Normal font for text
+            anchor="w",
+            justify="left"
+        ).grid(row=10, column=0, sticky="w", padx=10)
+
+    def create_widgets(self):
+        # # Instruction frame at the top
+        # instruction_frame = ctk.CTkFrame(self)
+        # instruction_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
+        # instruction_frame.grid_columnconfigure(0, weight=1)
+        # instruction_text = (
+        #     "     Instructions\n\n"
+        #     "     This program automatically detects if files are in a single list or organized by patient with multiple time points (e.g., T1, T2, T3).\n"
+        #     "     Outputs will be automatically ordered and labeled accordingly (e.g., P1T1, P1T2, P1T3). If the 'Rename files' option is selected, a text file will be generated, \n"
+        #     "     listing the original names and corresponding new names for each patient and time point.\n\n"
             
-            "     - Select tasks to perform:\n"
-            "       * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
-            "       * Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
-            "       * Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
-            "       * Calculate Volume: Creates a .txt file containing the volumes of the airway segmentations that can be easily imported into Excel.\n"
-            "       * Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
+        #     "     - Select tasks to perform:\n"
+        #     "       * Convert to NIfTI: Converts DICOM files to NIfTI format.\n"
+        #     "       * Anonymize and Rename: Removes identifying information from DICOM file metadata, applies user-specified name and numbering to all files.\n"
+        #     "       * Upper Airway Segmentation: Segments upper airway structures in 3-12 minutes per file, saving results with a '_seg' suffix for easy identification.\n"
+        #     "       * Calculate Volume: Creates a .txt file containing the volumes of the airway segmentations that can be easily imported into Excel.\n"
+        #     "       * Export as STL: Saves 3D STL files of segmentations for 3D printing or CFD simulations.\n\n"
             
-            "     - Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
-            "       * CBCT_Renamed_Anonymized, NIfTI_Converted, Predictions, STL_Exports, Volume_Calculations\n\n"
+        #     "     - Click 'Browse' to select the input folder. Based on the selected tasks, subfolders will be created automatically within the input folder:\n"
+        #     "       * CBCT_Renamed_Anonymized, NIfTI_Converted, Predictions, STL_Exports, Volume_Calculations\n\n"
             
-            "     - Additional information:\n"
-            "       * Input files can be in DICOM or NIfTI format; outputs will be saved in NIfTI format.\n\n"
+        #     "     - Additional information:\n"
+        #     "       * Input files can be in DICOM or NIfTI format; outputs will be saved in NIfTI format.\n\n"
             
-            "     - After making your selections, click 'Start Processing' to begin."
-        )
+        #     "     - After making your selections, click 'Start Processing' to begin."
+        # )
 
 
-        ctk.CTkLabel(instruction_frame, text=instruction_text, anchor="w", justify="left").grid(row=0, column=0, sticky="w")
+        # ctk.CTkLabel(instruction_frame, text=instruction_text, anchor="w", justify="left").grid(row=0, column=0, sticky="w")
 
         # Input path frame
         path_frame = ctk.CTkFrame(self)
