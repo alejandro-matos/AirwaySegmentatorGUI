@@ -124,7 +124,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Step 3: Run nnUNet prediction if selected
         if self.run_prediction.get():
              # Set prediction output folder
-            prediction_folder = os.path.join(output_folder, "Segmentation")
+            prediction_folder = os.path.join(output_folder, "Segmentations")
             os.makedirs(prediction_folder, exist_ok=True)
             # Determine nnUNet_IN based on file type and conversion setting
             if self.file_type.get() == "NIfTI":
