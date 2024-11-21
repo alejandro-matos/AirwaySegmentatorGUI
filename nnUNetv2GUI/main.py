@@ -248,13 +248,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 # Log the folder renaming
                 log_file.write(f"{relative_path}\t{new_folder_name}\n")
 
-                # Process files within the folder
-                for file_index, file_name in enumerate(os.listdir(original_folder_path), start=1):
-                    input_file_path = os.path.join(original_folder_path, file_name)
+                # Get a filtered list of valid files
+                valid_files = [
+                    file_name for file_name in os.listdir(original_folder_path)
+                    if os.path.isfile(os.path.join(original_folder_path, file_name)) and
+                    file_name.lower().endswith(".dcm") and
+                    not file_name.startswith("._")
+                ]
 
-                    # Skip non-DICOM files
-                    if not os.path.isfile(input_file_path) or not file_name.lower().endswith(".dcm"):
-                        continue
+                # Process each valid file
+                for file_index, file_name in enumerate(valid_files, start=1):
+                    input_file_path = os.path.join(original_folder_path, file_name)
 
                     # Anonymized file name
                     anonymized_file_name = f"{new_folder_name}_{file_index}.dcm"
@@ -268,7 +272,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     except Exception as e:
                         logging.error(f"Error renaming file {file_name} in folder {relative_path}: {e}")
                         messagebox.showerror("Renaming Error", f"Failed to rename {file_name} in folder {relative_path}. Error: {e}")
-
 
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
@@ -384,11 +387,34 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 for series_id in series_ids:
                     dicom_names = reader.GetGDCMSeriesFileNames(dicom_folder, series_id)
                     reader.SetFileNames(dicom_names)
+                    
+                    # Ensure no interpolation or resampling
+                    reader.MetaDataDictionaryArrayUpdateOn()
                     image = reader.Execute()
+                    
+                    # Extract and log original voxel spacing
+                    spacing = image.GetSpacing()
+                    logging.info(f"Original voxel spacing (x, y, z): {spacing}")
+                    
+                    # Correct potential flipping in direction
                     direction = image.GetDirection()
                     if direction[8] < 0:
                         image = sitk.Flip(image, [False, False, True])
-
+                        spacing = image.GetSpacing()  # Re-check after flipping
+                        logging.info(f"Flipped image. New voxel spacing (x, y, z): {spacing}")
+                    
+                    # Verify and log slice positions
+                    slice_positions = [
+                        float(image.TransformIndexToPhysicalPoint([0, 0, z])[2])
+                        for z in range(image.GetSize()[2])
+                    ]
+                    slice_differences = [
+                        round(slice_positions[i+1] - slice_positions[i], 5)
+                        for i in range(len(slice_positions) - 1)
+                    ]
+                    logging.info(f"Slice position differences in z-direction: {slice_differences}")
+                    
+                    # Save as NIfTI
                     nifti_filename = self.get_nifti_filename(patient_name, time_point, rename_enabled=self.rename_files.get())
                     nifti_path = os.path.join(nifti_folder, nifti_filename)
                     sitk.WriteImage(image, nifti_path)
@@ -431,6 +457,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         except Exception as e:
             logging.error(f"Error converting DICOM to NIfTI: {e}")
             messagebox.showerror("Conversion Error", f"Failed to convert DICOM to NIfTI. Error: {e}")
+
 
     def get_nifti_filename(self, patient_name, time_point=None, rename_enabled=False):
         """
