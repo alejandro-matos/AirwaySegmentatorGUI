@@ -194,18 +194,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
     def anonymize_and_rename_dicom_structure(self, source_dir, destination_dir):
         """
-        Renames and anonymizes DICOM files while shuffling the `P#T#` folder structure.
-        The rename log contains only the mapping of `P#T#` to new folder names.
+        Renames and anonymizes DICOM files while skipping any directories located in folders containing DICOM files.
         """
         # Gather all `P#T#` folders (patient and timepoint combination)
         folders = []
         for root, subdirs, files in os.walk(source_dir):
-            for subdir in subdirs:
-                subdir_path = os.path.join(root, subdir)
-                # Only consider subdirectories that contain DICOM files
-                if self.contains_dicom_files(subdir_path):
-                    relative_path = os.path.relpath(subdir_path, source_dir)
-                    folders.append((subdir_path, relative_path))
+            # Check if the current folder contains DICOM files
+            if self.contains_dicom_files(root):
+                # If DICOM files are found, ignore subdirectories and only process the files in this folder
+                subdirs.clear()  # Skip all subdirectories in the current folder
+                relative_path = os.path.relpath(root, source_dir)
+                folders.append((root, relative_path))
         
         # Debug: Check if folders were found
         if not folders:
@@ -233,7 +232,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         with open(rename_log_path, 'w') as log_file:
             log_file.write("Original Folder\tNew Folder\n")  # Log header
 
-            print(folder_mapping)
             # Process each folder
             for relative_path, new_folder_name in folder_mapping.items():
                 # Reconstruct the full original folder path
@@ -247,6 +245,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
                 # Log the folder renaming
                 log_file.write(f"{relative_path}\t{new_folder_name}\n")
+                log_file.flush()  # Ensure the entry is written immediately
 
                 # Get a filtered list of valid files
                 valid_files = [
@@ -267,11 +266,40 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     # Anonymize and copy the file
                     try:
                         self.anonymize_dicom(input_file_path, output_file_path, patient_name=new_folder_name)
-                        logging.info(f"Renamed {file_name} to {anonymized_file_name}")
+                        # logging.info(f"Renamed {file_name} to {anonymized_file_name}")  # Logging the renaming of every file
 
                     except Exception as e:
                         logging.error(f"Error renaming file {file_name} in folder {relative_path}: {e}")
                         messagebox.showerror("Renaming Error", f"Failed to rename {file_name} in folder {relative_path}. Error: {e}")
+
+        # After logging all names, rearrange alphabetically:
+        rename_log_path = os.path.join(destination_dir, "rename_log.txt")
+        self.rearrange_rename_log(rename_log_path)
+
+    def rearrange_rename_log(self, rename_log_path):
+        """
+        Rearranges the entries in rename_log.txt to sort original folder names alphabetically.
+        """
+        try:
+            with open(rename_log_path, 'r') as log_file:
+                lines = log_file.readlines()
+
+            # Preserve the header line
+            header = lines[0]
+            entries = lines[1:]  # Skip the header
+
+            # Sort entries alphabetically by the original folder name (first column)
+            sorted_entries = sorted(entries, key=lambda line: line.split("\t")[0])
+
+            # Rewrite the log file with sorted entries
+            with open(rename_log_path, 'w') as log_file:
+                log_file.write(header)  # Write the header back
+                log_file.writelines(sorted_entries)
+
+            # logging.info("Successfully rearranged rename_log.txt to alphabetical order.")
+        except Exception as e:
+            logging.error(f"Error rearranging rename_log.txt: {e}")
+            messagebox.showerror("Error", f"Failed to rearrange rename_log.txt. Error: {e}")
 
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
@@ -394,7 +422,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     
                     # Extract and log original voxel spacing
                     spacing = image.GetSpacing()
-                    logging.info(f"Original voxel spacing (x, y, z): {spacing}")
+                    # logging.info(f"Original voxel spacing (x, y, z): {spacing}") # Logging voxel spacing in all 3 directions
                     
                     # Correct potential flipping in direction
                     direction = image.GetDirection()
@@ -412,13 +440,13 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                         round(slice_positions[i+1] - slice_positions[i], 5)
                         for i in range(len(slice_positions) - 1)
                     ]
-                    logging.info(f"Slice position differences in z-direction: {slice_differences}")
+                    #logging.info(f"Slice position differences in z-direction: {slice_differences}") # Logging the voxel spacing in the z direction
                     
                     # Save as NIfTI
                     nifti_filename = self.get_nifti_filename(patient_name, time_point, rename_enabled=self.rename_files.get())
                     nifti_path = os.path.join(nifti_folder, nifti_filename)
                     sitk.WriteImage(image, nifti_path)
-                    logging.info(f"NIfTI file saved at: {nifti_path}")
+                    # logging.info(f"NIfTI file saved at: {nifti_path}") # Logging NIfTI saved location
 
             # Main conversion loop
             patient_folders = [
