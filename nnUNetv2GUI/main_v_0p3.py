@@ -12,9 +12,7 @@ import numpy as np
 from STLConvGUI import STLConverterGUI
 from tkinter.ttk import Progressbar
 import vtk
-# ----   Not used in this code (yet)  ----
-# from nnUNetGUIv3 import nnUNetScript
-# from D2N_GUI import AnonDtoNGUI
+import random  # Import the random module for shuffling
 
 # Set up logging for detailed feedback
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -178,64 +176,100 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     return True
 
         return False
+    
+    def generate_randomized_mapping(self, items, starting_index):
+        """
+        Generate a consistent mapping from item names to randomized indices.
+
+        Parameters:
+            items (list): List of items (folders or file names).
+            starting_index (int): Starting index for renaming.
+
+        Returns:
+            dict: Mapping of original item names to randomized indices.
+        """
+        indices = list(range(starting_index, starting_index + len(items)))
+        random.shuffle(indices)
+        return dict(zip(items, indices))
 
     def anonymize_and_rename_dicom_structure(self, source_dir, destination_dir):
-        global_index = self.starting_number.get()  # Start numbering from the specified start number
-        self.renamed_folders = {}  # Reset dictionary for each processing session
+        """
+        Renames and anonymizes DICOM files while shuffling the `P#T#` folder structure.
+        The rename log contains only the mapping of `P#T#` to new folder names.
+        """
+        # Gather all `P#T#` folders (patient and timepoint combination)
+        folders = []
+        for root, subdirs, files in os.walk(source_dir):
+            for subdir in subdirs:
+                subdir_path = os.path.join(root, subdir)
+                # Only consider subdirectories that contain DICOM files
+                if self.contains_dicom_files(subdir_path):
+                    relative_path = os.path.relpath(subdir_path, source_dir)
+                    folders.append((subdir_path, relative_path))
+        
+        # Debug: Check if folders were found
+        if not folders:
+            logging.warning("No DICOM folders found in the source directory.")
+            messagebox.showwarning("No Folders", "No DICOM folders containing files were found in the selected input directory.")
+            return
+
+        # Shuffle the list of folders to randomize the order
+        random.shuffle(folders)
+
+        # Create unique randomized indices for all folders
+        total_folders = len(folders)
+        indices = list(range(self.starting_number.get(), self.starting_number.get() + total_folders))
+
+        # Map each shuffled folder to a unique randomized name
+        folder_mapping = {relative_path: f"{self.data_nickname.get()}_{index}" for (_, relative_path), index in zip(folders, indices)}
+
+        # Ensure the destination directory exists
+        os.makedirs(destination_dir, exist_ok=True)
 
         # Path for the renaming log file
         rename_log_path = os.path.join(destination_dir, "rename_log.txt")
+
+        # Open the log file for recording the renaming process
         with open(rename_log_path, 'w') as log_file:
-            log_file.write("Original Folder\tNew Folder\n")  # Header for clarity
+            log_file.write("Original Folder\tNew Folder\n")  # Log header
 
-            # Process each patient folder
-            patient_folders = [
-                d for d in os.listdir(source_dir)
-                if os.path.isdir(os.path.join(source_dir, d))
-            ]
-            for patient_folder in patient_folders:
-                patient_path = os.path.join(source_dir, patient_folder)
+            print(folder_mapping)
+            # Process each folder
+            for relative_path, new_folder_name in folder_mapping.items():
+                # Reconstruct the full original folder path
+                original_folder_path = os.path.join(source_dir, relative_path)
 
-                # Check if the folder contains DICOM files directly (list structure)
-                if self.contains_dicom_files(patient_path):
-                    # List structure: DICOMs are directly within the patient folder
-                    new_folder_path = os.path.join(destination_dir, f"{self.data_nickname.get()}_{global_index}")
-                    os.makedirs(new_folder_path, exist_ok=True)
+                # Create the new folder in the destination directory
+                new_folder_path = os.path.join(destination_dir, new_folder_name)
+                os.makedirs(new_folder_path, exist_ok=True)
 
-                    # Process and rename DICOM files using Nickname_global_index format
-                    self.process_dicom_files(patient_path, new_folder_path, f"{self.data_nickname.get()}_{global_index}")
+                logging.info(f"Renaming folder {relative_path} to {new_folder_name}")
 
-                    # Log the renaming for each scan in list structure
-                    log_file.write(f"{patient_folder}\t{self.data_nickname.get()}_{global_index}\n")
+                # Log the folder renaming
+                log_file.write(f"{relative_path}\t{new_folder_name}\n")
 
-                    # Increment the global index for each scan
-                    global_index += 1
-                else:
-                    # Tree structure: process subfolders (time points) within the patient folder
-                    subfolders = [
-                        d for d in os.listdir(patient_path)
-                        if os.path.isdir(os.path.join(patient_path, d))
-                    ]
-                    for time_point in subfolders:
-                        time_point_path = os.path.join(patient_path, time_point)
+                # Process files within the folder
+                for file_index, file_name in enumerate(os.listdir(original_folder_path), start=1):
+                    input_file_path = os.path.join(original_folder_path, file_name)
 
-                        # Assign a unique name based on the global index for each time point
-                        time_point_nickname = f"{self.data_nickname.get()}_{global_index}"
-                        self.renamed_folders[os.path.join(patient_folder, time_point)] = time_point_nickname
+                    # Skip non-DICOM files
+                    if not os.path.isfile(input_file_path) or not file_name.lower().endswith(".dcm"):
+                        continue
 
-                        # Log the renaming with the unique global index
-                        log_file.write(f"{os.path.join(patient_folder, time_point)}\t{time_point_nickname}\n")
+                    # Anonymized file name
+                    anonymized_file_name = f"{new_folder_name}_{file_index}.dcm"
+                    output_file_path = os.path.join(new_folder_path, anonymized_file_name)
 
-                        if self.contains_dicom_files(time_point_path):
-                            # Create a separate folder for each time point
-                            new_folder_path = os.path.join(destination_dir, time_point_nickname)
-                            os.makedirs(new_folder_path, exist_ok=True)
+                    # Anonymize and copy the file
+                    try:
+                        self.anonymize_dicom(input_file_path, output_file_path, patient_name=new_folder_name)
+                        logging.info(f"Renamed {file_name} to {anonymized_file_name}")
 
-                            # Process and rename DICOM files within each time point using Nickname_global_index
-                            self.process_dicom_files(time_point_path, new_folder_path, time_point_nickname)
+                    except Exception as e:
+                        logging.error(f"Error renaming file {file_name} in folder {relative_path}: {e}")
+                        messagebox.showerror("Renaming Error", f"Failed to rename {file_name} in folder {relative_path}. Error: {e}")
 
-                        # Increment the global index after each time point
-                        global_index += 1
+
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
         """
@@ -275,36 +309,64 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         dataset.save_as(output_file)
 
     def rename_nifti_structure(self, source_dir, destination_dir):
-        global_index = self.starting_number.get()  # Start numbering from the specified start number
-        self.renamed_files = {}  # Reset dictionary for each processing session
+        """
+        Renames NIfTI files based on a randomized mapping, ensuring unique names for all files.
+        """
+        # Gather all NIfTI files
+        nifti_files = []
+        for root, _, files in os.walk(source_dir):
+            for file_name in files:
+                if file_name.endswith('.nii.gz'):
+                    nifti_files.append((root, file_name))
+
+        # Debug: Check if files were found
+        if not nifti_files:
+            logging.warning("No NIfTI files found in the source directory.")
+            messagebox.showwarning("No Files", "No NIfTI files found in the selected input directory.")
+            return
+
+        # Create a unique randomized index for all files
+        total_files = len(nifti_files)
+        indices = list(range(self.starting_number.get(), self.starting_number.get() + total_files))
+        random.shuffle(indices)
+
+        # Map each file to a unique index
+        file_to_index = {file: idx for file, idx in zip(nifti_files, indices)}
+
+        # Ensure the destination directory exists
+        os.makedirs(destination_dir, exist_ok=True)
 
         # Path for the renaming log file
         rename_log_path = os.path.join(destination_dir, "rename_log.txt")
-        os.makedirs(destination_dir, exist_ok=True)  # Ensure the destination directory exists
 
+        # Open the log file for recording the renaming process
         with open(rename_log_path, 'w') as log_file:
-            log_file.write("Original File\tNew File\n")  # Header for clarity
+            log_file.write("Original File\tNew File\n")  # Log header
 
-            # Traverse the source directory, including subdirectories if present
-            for root, _, files in os.walk(source_dir):
-                for file_name in files:
-                    if file_name.endswith('.nii.gz'):
-                        input_file_path = os.path.join(root, file_name)
-                        
-                        # Construct the new name with the global index
-                        new_file_name = f"{self.data_nickname.get()}_{global_index}.nii.gz"
-                        new_file_path = os.path.join(destination_dir, new_file_name)
-                        
-                        # Copy the file to the destination with the new name by reading and writing in binary mode
-                        with open(input_file_path, 'rb') as f_src:
-                            with open(new_file_path, 'wb') as f_dst:
-                                f_dst.write(f_src.read())
-                        
-                        # Log only the original file name and new file name
-                        log_file.write(f"{file_name}\t{new_file_name}\n")
+            # Process each NIfTI file
+            for (root, file_name), unique_index in file_to_index.items():
+                new_file_name = f"{self.data_nickname.get()}_{unique_index}.nii.gz"
 
-                        # Increment the global index for each NIfTI file
-                        global_index += 1
+                # Full paths for the input and renamed files
+                input_file_path = os.path.join(root, file_name)
+                new_file_path = os.path.join(destination_dir, new_file_name)
+
+                # Debug: Log file paths
+                logging.info(f"Renaming {input_file_path} to {new_file_path}")
+
+                try:
+                    # Rename (copy) the file
+                    with open(input_file_path, 'rb') as f_src:
+                        with open(new_file_path, 'wb') as f_dst:
+                            f_dst.write(f_src.read())
+
+                    # Log the renaming in the text file
+                    log_file.write(f"{file_name}\t{new_file_name}\n")
+                    logging.info(f"Successfully renamed {file_name} to {new_file_name}")
+
+                except Exception as e:
+                    logging.error(f"Error renaming file {file_name}: {e}")
+                    messagebox.showerror("Renaming Error", f"Failed to rename {file_name}. Error: {e}")
 
 
     def convert_dicom_to_nifti(self, input_folder, output_folder):
