@@ -13,6 +13,7 @@ from STLConvGUI import STLConverterGUI
 from tkinter.ttk import Progressbar
 import vtk
 import random  # Import the random module for shuffling
+from natsort import natsorted 
 
 # Set up logging for detailed feedback
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -159,24 +160,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
     def contains_dicom_files(self, folder):
         for item in os.listdir(folder):
             item_path = os.path.join(folder, item)
-            
             # Check if the item is a file
             if os.path.isfile(item_path):
-                # Attempt to read the file as DICOM
                 try:
+                    # Attempt to read the file as DICOM
                     pydicom.dcmread(item_path, stop_before_pixels=True)
-                    return True
-                except pydicom.errors.InvalidDicomError:
-                    # Continue to check if the filename contains "DCM" if it's not valid DICOM
-                    pass
-
-                # Check if "DCM" is in the filename as an alternative identifier
-                if "DCM" in item.upper() and not item.startswith("._"):
-                    print(f"Filename suggests DICOM: {item_path}")
-                    return True
-
+                    return True  # If no exception, it's a valid DICOM
+                except (pydicom.errors.InvalidDicomError, IsADirectoryError):
+                    # Invalid DICOM or directory, continue checking other files
+                    continue
         return False
-    
+        
     def generate_randomized_mapping(self, items, starting_index):
         """
         Generate a consistent mapping from item names to randomized indices.
@@ -251,8 +245,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 valid_files = [
                     file_name for file_name in os.listdir(original_folder_path)
                     if os.path.isfile(os.path.join(original_folder_path, file_name)) and
-                    file_name.lower().endswith(".dcm") and
-                    not file_name.startswith("._")
+                    not file_name.startswith("._")  # Exclude hidden/system files
                 ]
 
                 # Process each valid file
@@ -619,7 +612,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 os.remove(file_path)
                 print(f"Removed: {file_path}")
     
-    # Need to check if it works when starting from prediction all the way to volume calc and with multiple files
+    # Need to check if it works when starting from prediction all the way to volume calc and with multiple files tk
     def calculate_airway_volumes(self, input_path, output_path, file_format="txt"):
         if not os.path.exists(input_path):
             messagebox.showwarning("Path Error", "Input path for volume calculation does not exist.")
@@ -636,10 +629,14 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 f.write("Filename\tVolume (mm^3)\n")
                 for filename, volume in volume_results:
                     f.write(f"{filename}\t{volume:.2f}\n")
+                    f.flush()  # Ensure the entry is written immediately
+                    print(file_path)
 
         except Exception as e:
             logging.error("Error in volume calculation: %s", e)
             messagebox.showerror("Error", f"Failed to save volume calculation results: {e}")
+        print(file_path)
+        self.rearrange_volume_calculations(file_path)
 
     def calculate_volume_from_file(self, file_path, airway_label=1):
         """
@@ -660,9 +657,10 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             # Log the affine matrix and zooms for debugging
             affine = nifti_img.affine
             voxel_sizes = nifti_img.header.get_zooms()  # Voxel dimensions in mm
-            logging.info(f"File: {file_path}")
-            logging.info(f"Affine matrix: \n{affine}")
-            logging.info(f"Voxel dimensions (in mm): {voxel_sizes}")
+            # --- Login file path and info
+            #logging.info(f"File: {file_path}")
+            #logging.info(f"Affine matrix: \n{affine}")
+            #logging.info(f"Voxel dimensions (in mm): {voxel_sizes}")
 
             # Calculate the volume of a single voxel
             voxel_volume = np.prod(voxel_sizes)  # Voxel volume in mm³
@@ -681,6 +679,33 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         except Exception as e:
             logging.error(f"Failed to calculate volume for {file_path}: {e}")
             return 0  # Return 0 if there was an error
+    
+    def rearrange_volume_calculations(self, file_path):
+        """
+        Rearranges the entries in the volume calculation file to sort filenames in natural order.
+        """
+        try:
+            # Read the contents of the file
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+
+            # Separate the header from the data
+            header = lines[0]
+            entries = lines[1:]
+
+            # Sort the entries in natural order based on the filename
+            sorted_entries = natsorted(entries, key=lambda line: line.split("\t")[0])
+
+            # Write the rearranged content back to the file
+            with open(file_path, 'w') as f:
+                f.write(header)  # Write the header first
+                f.writelines(sorted_entries)  # Write the sorted entries
+
+            logging.info(f"Rearranged volume calculations in natural order: {file_path}")
+
+        except Exception as e:
+            logging.error(f"Error rearranging volume calculations: {e}")
+            messagebox.showerror("Error", f"Failed to rearrange volume calculations: {e}")
     
     ## ------------------------------------------------------- ##
     ## ------------ STL Creation ----------------------------- ##
