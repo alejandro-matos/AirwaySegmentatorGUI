@@ -710,22 +710,36 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
     ## ------------------------------------------------------- ##
     ## ------------ STL Creation ----------------------------- ##
     ## ------------------------------------------------------- ##
-    def nifti_to_stl(self,nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
+    def nifti_to_stl(self, nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
         try:
             # Load NIfTI file
             reader = vtk.vtkNIFTIImageReader()
             reader.SetFileName(nifti_file_path)
             reader.Update()
+
+            # Add padding to ensure closed surfaces
+            pad_filter = vtk.vtkImageConstantPad()
+            pad_filter.SetInputConnection(reader.GetOutputPort())
             
+            # Set padding: Add one layer of zero-value voxels on all sides
+            extent = reader.GetDataExtent()
+            pad_filter.SetOutputWholeExtent(
+                extent[0] - 1, extent[1] + 1,  # X-axis padding
+                extent[2] - 1, extent[3] + 1,  # Y-axis padding
+                extent[4] - 1, extent[5] + 1   # Z-axis padding
+            )
+            pad_filter.SetConstant(0)  # Fill padding with zero
+            pad_filter.Update()
+
             # Apply vtkDiscreteFlyingEdges3D
             discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
-            discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
+            discrete_flying_edges.SetInputConnection(pad_filter.GetOutputPort())
             discrete_flying_edges.SetValue(0, threshold_value)
             discrete_flying_edges.Update()
-            
+
             output_polydata = discrete_flying_edges.GetOutput()
 
-            # Apply decimation if requested
+            # Apply decimation to reduce file size
             if decimate:
                 decimator = vtk.vtkDecimatePro()
                 decimator.SetInputData(output_polydata)
@@ -738,7 +752,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             smoothing_filter = vtk.vtkSmoothPolyDataFilter()
             smoothing_filter.SetInputData(output_polydata)
             smoothing_filter.SetNumberOfIterations(5)
-            smoothing_filter.SetRelaxationFactor(0.05)
+            smoothing_filter.SetRelaxationFactor(0.1)
             smoothing_filter.FeatureEdgeSmoothingOff()
             smoothing_filter.BoundarySmoothingOn()
             smoothing_filter.Update()
@@ -786,6 +800,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         except Exception as e:
             messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file_path} to STL. Error: {e}")
+
 
     def export_predictions_to_stl(self,input_path_str,output_path_str):
 
