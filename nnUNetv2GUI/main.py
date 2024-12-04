@@ -13,6 +13,7 @@ from STLConvGUI import STLConverterGUI
 from tkinter.ttk import Progressbar
 import vtk
 import random  # Import the random module for shuffling
+from natsort import natsorted 
 
 # Set up logging for detailed feedback
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -159,24 +160,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
     def contains_dicom_files(self, folder):
         for item in os.listdir(folder):
             item_path = os.path.join(folder, item)
-            
             # Check if the item is a file
             if os.path.isfile(item_path):
-                # Attempt to read the file as DICOM
                 try:
+                    # Attempt to read the file as DICOM
                     pydicom.dcmread(item_path, stop_before_pixels=True)
-                    return True
-                except pydicom.errors.InvalidDicomError:
-                    # Continue to check if the filename contains "DCM" if it's not valid DICOM
-                    pass
-
-                # Check if "DCM" is in the filename as an alternative identifier
-                if "DCM" in item.upper() and not item.startswith("._"):
-                    print(f"Filename suggests DICOM: {item_path}")
-                    return True
-
+                    return True  # If no exception, it's a valid DICOM
+                except (pydicom.errors.InvalidDicomError, IsADirectoryError):
+                    # Invalid DICOM or directory, continue checking other files
+                    continue
         return False
-    
+        
     def generate_randomized_mapping(self, items, starting_index):
         """
         Generate a consistent mapping from item names to randomized indices.
@@ -194,18 +188,17 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
     def anonymize_and_rename_dicom_structure(self, source_dir, destination_dir):
         """
-        Renames and anonymizes DICOM files while shuffling the `P#T#` folder structure.
-        The rename log contains only the mapping of `P#T#` to new folder names.
+        Renames and anonymizes DICOM files while skipping any directories located in folders containing DICOM files.
         """
         # Gather all `P#T#` folders (patient and timepoint combination)
         folders = []
         for root, subdirs, files in os.walk(source_dir):
-            for subdir in subdirs:
-                subdir_path = os.path.join(root, subdir)
-                # Only consider subdirectories that contain DICOM files
-                if self.contains_dicom_files(subdir_path):
-                    relative_path = os.path.relpath(subdir_path, source_dir)
-                    folders.append((subdir_path, relative_path))
+            # Check if the current folder contains DICOM files
+            if self.contains_dicom_files(root):
+                # If DICOM files are found, ignore subdirectories and only process the files in this folder
+                subdirs.clear()  # Skip all subdirectories in the current folder
+                relative_path = os.path.relpath(root, source_dir)
+                folders.append((root, relative_path))
         
         # Debug: Check if folders were found
         if not folders:
@@ -233,7 +226,6 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         with open(rename_log_path, 'w') as log_file:
             log_file.write("Original Folder\tNew Folder\n")  # Log header
 
-            print(folder_mapping)
             # Process each folder
             for relative_path, new_folder_name in folder_mapping.items():
                 # Reconstruct the full original folder path
@@ -247,14 +239,18 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
                 # Log the folder renaming
                 log_file.write(f"{relative_path}\t{new_folder_name}\n")
+                log_file.flush()  # Ensure the entry is written immediately
 
-                # Process files within the folder
-                for file_index, file_name in enumerate(os.listdir(original_folder_path), start=1):
+                # Get a filtered list of valid files
+                valid_files = [
+                    file_name for file_name in os.listdir(original_folder_path)
+                    if os.path.isfile(os.path.join(original_folder_path, file_name)) and
+                    not file_name.startswith("._")  # Exclude hidden/system files
+                ]
+
+                # Process each valid file
+                for file_index, file_name in enumerate(valid_files, start=1):
                     input_file_path = os.path.join(original_folder_path, file_name)
-
-                    # Skip non-DICOM files
-                    if not os.path.isfile(input_file_path) or not file_name.lower().endswith(".dcm"):
-                        continue
 
                     # Anonymized file name
                     anonymized_file_name = f"{new_folder_name}_{file_index}.dcm"
@@ -263,12 +259,40 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                     # Anonymize and copy the file
                     try:
                         self.anonymize_dicom(input_file_path, output_file_path, patient_name=new_folder_name)
-                        logging.info(f"Renamed {file_name} to {anonymized_file_name}")
+                        # logging.info(f"Renamed {file_name} to {anonymized_file_name}")  # Logging the renaming of every file
 
                     except Exception as e:
                         logging.error(f"Error renaming file {file_name} in folder {relative_path}: {e}")
                         messagebox.showerror("Renaming Error", f"Failed to rename {file_name} in folder {relative_path}. Error: {e}")
 
+        # After logging all names, rearrange alphabetically:
+        rename_log_path = os.path.join(destination_dir, "rename_log.txt")
+        self.rearrange_rename_log(rename_log_path)
+
+    def rearrange_rename_log(self, rename_log_path):
+        """
+        Rearranges the entries in rename_log.txt to sort original folder names alphabetically.
+        """
+        try:
+            with open(rename_log_path, 'r') as log_file:
+                lines = log_file.readlines()
+
+            # Preserve the header line
+            header = lines[0]
+            entries = lines[1:]  # Skip the header
+
+            # Sort entries alphabetically by the original folder name (first column)
+            sorted_entries = sorted(entries, key=lambda line: line.split("\t")[0])
+
+            # Rewrite the log file with sorted entries
+            with open(rename_log_path, 'w') as log_file:
+                log_file.write(header)  # Write the header back
+                log_file.writelines(sorted_entries)
+
+            # logging.info("Successfully rearranged rename_log.txt to alphabetical order.")
+        except Exception as e:
+            logging.error(f"Error rearranging rename_log.txt: {e}")
+            messagebox.showerror("Error", f"Failed to rearrange rename_log.txt. Error: {e}")
 
 
     def process_dicom_files(self, input_folder, output_folder, patient_name):
@@ -384,15 +408,38 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 for series_id in series_ids:
                     dicom_names = reader.GetGDCMSeriesFileNames(dicom_folder, series_id)
                     reader.SetFileNames(dicom_names)
+                    
+                    # Ensure no interpolation or resampling
+                    reader.MetaDataDictionaryArrayUpdateOn()
                     image = reader.Execute()
+                    
+                    # Extract and log original voxel spacing
+                    spacing = image.GetSpacing()
+                    # logging.info(f"Original voxel spacing (x, y, z): {spacing}") # Logging voxel spacing in all 3 directions
+                    
+                    # Correct potential flipping in direction
                     direction = image.GetDirection()
                     if direction[8] < 0:
                         image = sitk.Flip(image, [False, False, True])
-
+                        spacing = image.GetSpacing()  # Re-check after flipping
+                        logging.info(f"Flipped image. New voxel spacing (x, y, z): {spacing}")
+                    
+                    # Verify and log slice positions
+                    slice_positions = [
+                        float(image.TransformIndexToPhysicalPoint([0, 0, z])[2])
+                        for z in range(image.GetSize()[2])
+                    ]
+                    slice_differences = [
+                        round(slice_positions[i+1] - slice_positions[i], 5)
+                        for i in range(len(slice_positions) - 1)
+                    ]
+                    #logging.info(f"Slice position differences in z-direction: {slice_differences}") # Logging the voxel spacing in the z direction
+                    
+                    # Save as NIfTI
                     nifti_filename = self.get_nifti_filename(patient_name, time_point, rename_enabled=self.rename_files.get())
                     nifti_path = os.path.join(nifti_folder, nifti_filename)
                     sitk.WriteImage(image, nifti_path)
-                    logging.info(f"NIfTI file saved at: {nifti_path}")
+                    # logging.info(f"NIfTI file saved at: {nifti_path}") # Logging NIfTI saved location
 
             # Main conversion loop
             patient_folders = [
@@ -431,6 +478,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         except Exception as e:
             logging.error(f"Error converting DICOM to NIfTI: {e}")
             messagebox.showerror("Conversion Error", f"Failed to convert DICOM to NIfTI. Error: {e}")
+
 
     def get_nifti_filename(self, patient_name, time_point=None, rename_enabled=False):
         """
@@ -564,7 +612,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 os.remove(file_path)
                 print(f"Removed: {file_path}")
     
-    # Need to check if it works when starting from prediction all the way to volume calc and with multiple files
+    # Need to check if it works when starting from prediction all the way to volume calc and with multiple files tk
     def calculate_airway_volumes(self, input_path, output_path, file_format="txt"):
         if not os.path.exists(input_path):
             messagebox.showwarning("Path Error", "Input path for volume calculation does not exist.")
@@ -581,10 +629,14 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
                 f.write("Filename\tVolume (mm^3)\n")
                 for filename, volume in volume_results:
                     f.write(f"{filename}\t{volume:.2f}\n")
+                    f.flush()  # Ensure the entry is written immediately
+                    print(file_path)
 
         except Exception as e:
             logging.error("Error in volume calculation: %s", e)
             messagebox.showerror("Error", f"Failed to save volume calculation results: {e}")
+        print(file_path)
+        self.rearrange_volume_calculations(file_path)
 
     def calculate_volume_from_file(self, file_path, airway_label=1):
         """
@@ -605,9 +657,10 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             # Log the affine matrix and zooms for debugging
             affine = nifti_img.affine
             voxel_sizes = nifti_img.header.get_zooms()  # Voxel dimensions in mm
-            logging.info(f"File: {file_path}")
-            logging.info(f"Affine matrix: \n{affine}")
-            logging.info(f"Voxel dimensions (in mm): {voxel_sizes}")
+            # --- Login file path and info
+            #logging.info(f"File: {file_path}")
+            #logging.info(f"Affine matrix: \n{affine}")
+            #logging.info(f"Voxel dimensions (in mm): {voxel_sizes}")
 
             # Calculate the volume of a single voxel
             voxel_volume = np.prod(voxel_sizes)  # Voxel volume in mm³
@@ -627,25 +680,66 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             logging.error(f"Failed to calculate volume for {file_path}: {e}")
             return 0  # Return 0 if there was an error
     
+    def rearrange_volume_calculations(self, file_path):
+        """
+        Rearranges the entries in the volume calculation file to sort filenames in natural order.
+        """
+        try:
+            # Read the contents of the file
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+
+            # Separate the header from the data
+            header = lines[0]
+            entries = lines[1:]
+
+            # Sort the entries in natural order based on the filename
+            sorted_entries = natsorted(entries, key=lambda line: line.split("\t")[0])
+
+            # Write the rearranged content back to the file
+            with open(file_path, 'w') as f:
+                f.write(header)  # Write the header first
+                f.writelines(sorted_entries)  # Write the sorted entries
+
+            logging.info(f"Rearranged volume calculations in natural order: {file_path}")
+
+        except Exception as e:
+            logging.error(f"Error rearranging volume calculations: {e}")
+            messagebox.showerror("Error", f"Failed to rearrange volume calculations: {e}")
+    
     ## ------------------------------------------------------- ##
     ## ------------ STL Creation ----------------------------- ##
     ## ------------------------------------------------------- ##
-    def nifti_to_stl(self,nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
+    def nifti_to_stl(self, nifti_file_path, stl_file_path, threshold_value=1, decimate=True, decimate_target_reduction=0.5):
         try:
             # Load NIfTI file
             reader = vtk.vtkNIFTIImageReader()
             reader.SetFileName(nifti_file_path)
             reader.Update()
+
+            # Add padding to ensure closed surfaces
+            pad_filter = vtk.vtkImageConstantPad()
+            pad_filter.SetInputConnection(reader.GetOutputPort())
             
+            # Set padding: Add one layer of zero-value voxels on all sides
+            extent = reader.GetDataExtent()
+            pad_filter.SetOutputWholeExtent(
+                extent[0] - 1, extent[1] + 1,  # X-axis padding
+                extent[2] - 1, extent[3] + 1,  # Y-axis padding
+                extent[4] - 1, extent[5] + 1   # Z-axis padding
+            )
+            pad_filter.SetConstant(0)  # Fill padding with zero
+            pad_filter.Update()
+
             # Apply vtkDiscreteFlyingEdges3D
             discrete_flying_edges = vtk.vtkDiscreteFlyingEdges3D()
-            discrete_flying_edges.SetInputConnection(reader.GetOutputPort())
+            discrete_flying_edges.SetInputConnection(pad_filter.GetOutputPort())
             discrete_flying_edges.SetValue(0, threshold_value)
             discrete_flying_edges.Update()
-            
+
             output_polydata = discrete_flying_edges.GetOutput()
 
-            # Apply decimation if requested
+            # Apply decimation to reduce file size
             if decimate:
                 decimator = vtk.vtkDecimatePro()
                 decimator.SetInputData(output_polydata)
@@ -658,7 +752,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
             smoothing_filter = vtk.vtkSmoothPolyDataFilter()
             smoothing_filter.SetInputData(output_polydata)
             smoothing_filter.SetNumberOfIterations(5)
-            smoothing_filter.SetRelaxationFactor(0.05)
+            smoothing_filter.SetRelaxationFactor(0.1)
             smoothing_filter.FeatureEdgeSmoothingOff()
             smoothing_filter.BoundarySmoothingOn()
             smoothing_filter.Update()
@@ -706,6 +800,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         except Exception as e:
             messagebox.showerror("Conversion Error", f"Failed to convert {nifti_file_path} to STL. Error: {e}")
+
 
     def export_predictions_to_stl(self,input_path_str,output_path_str):
 
