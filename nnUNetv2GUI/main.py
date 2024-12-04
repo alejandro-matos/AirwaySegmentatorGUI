@@ -975,7 +975,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         ctk.CTkSwitch(task_frame, text="Export Segmentation as STL", variable=self.export_stl).grid(row=5, column=0, padx=20, pady=5, sticky="w")
 
         # Start button
-        ctk.CTkButton(self, text="Start Processing", command=self.start_processing).grid(row=3, column=0, pady=5)
+        ctk.CTkButton(self, text="Start Processing", command=self.start_processing, font=("Times_New_Roman", 14, "bold")).grid(row=3, column=0, pady=5)
 
 if __name__ == "__main__":
     app = UnifiedAirwaySegmentationGUI()
