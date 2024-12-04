@@ -64,11 +64,14 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
     def toggle_rename_fields(self):
         """Enable or disable nickname and starting number fields based on Rename Files checkbox."""
         if self.rename_files.get():
-            self.nick_label_entry.configure(state="normal")
-            self.start_number_entry.configure(state="normal")
+            # Enable the fields and update colors
+            self.nick_label_entry.configure(state="normal", fg_color="white", text_color="black")
+            self.start_number_entry.configure(state="normal", fg_color="white", text_color="black")
         else:
-            self.nick_label_entry.configure(state="disabled")
-            self.start_number_entry.configure(state="disabled")
+            # Disable the fields and reset colors to their inactive appearance
+            self.nick_label_entry.configure(state="disabled", fg_color="gray", text_color="darkgray")
+            self.start_number_entry.configure(state="disabled", fg_color="gray", text_color="darkgray")
+
 
     def update_file_options(self, selected_file_type):
         """Enable/Disable options based on the file type selected."""
@@ -928,7 +931,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # Input Folder
         ctk.CTkLabel(path_frame, text="Input Folder:").grid(row=0, column=0, padx=(0, 10), pady=5, sticky="w")
-        ctk.CTkEntry(path_frame, textvariable=self.input_path, width=500, fg_color = "white", text_color="black").grid(row=0, column=1, padx=(0, 10), sticky="ew")
+        ctk.CTkEntry(path_frame, textvariable=self.input_path, width=500, fg_color="white", text_color="black").grid(row=0, column=1, padx=(0, 10), sticky="ew")
         ctk.CTkButton(path_frame, text="Browse", command=self.browse_input_folder, font=("Times_New_Roman", 14, "bold")).grid(row=0, column=2, padx=(0, 10))
 
         # File Type Selection
@@ -956,13 +959,13 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Name to be applied label and entry
         nick_label = ctk.CTkLabel(task_frame, text="New File Name:")
         nick_label.grid(row=2, column=1, sticky="", pady=5, padx=(10, 5))
-        self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150, fg_color = "white", text_color="black")
+        self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150, fg_color="gray", text_color="darkgray")
         self.nick_label_entry.grid(row=2, column=2, sticky="w", pady=5)
         
         # Starting number label and entry
         start_number_label = ctk.CTkLabel(task_frame, text="Starting Number:")
         start_number_label.grid(row=2, column=3, sticky="", pady=5, padx=(10, 5))
-        self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100, fg_color = "white", text_color="black")
+        self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100, fg_color="gray", text_color="darkgray")
         self.start_number_entry.grid(row=2, column=4, sticky="w", pady=5)
 
         # Initialize as disabled
