@@ -47,7 +47,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # Set the color theme
         ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        ctk.set_default_color_theme("green")
 
         # Build the interface
         self.create_instruction_frame()  # Call the instruction frame function
