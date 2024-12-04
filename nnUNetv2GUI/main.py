@@ -928,7 +928,7 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
 
         # Input Folder
         ctk.CTkLabel(path_frame, text="Input Folder:").grid(row=0, column=0, padx=(0, 10), pady=5, sticky="w")
-        ctk.CTkEntry(path_frame, textvariable=self.input_path, width=500).grid(row=0, column=1, padx=(0, 10), sticky="ew")
+        ctk.CTkEntry(path_frame, textvariable=self.input_path, width=500, fg_color = "white", text_color="black").grid(row=0, column=1, padx=(0, 10), sticky="ew")
         ctk.CTkButton(path_frame, text="Browse", command=self.browse_input_folder).grid(row=0, column=2, padx=(0, 10))
 
         # File Type Selection
@@ -956,13 +956,13 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Name to be applied label and entry
         nick_label = ctk.CTkLabel(task_frame, text="New File Name:")
         nick_label.grid(row=2, column=1, sticky="", pady=5, padx=(10, 5))
-        self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150)
+        self.nick_label_entry = ctk.CTkEntry(task_frame, textvariable=self.data_nickname, width=150, fg_color = "white", text_color="black")
         self.nick_label_entry.grid(row=2, column=2, sticky="w", pady=5)
         
         # Starting number label and entry
         start_number_label = ctk.CTkLabel(task_frame, text="Starting Number:")
         start_number_label.grid(row=2, column=3, sticky="", pady=5, padx=(10, 5))
-        self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100)
+        self.start_number_entry = ctk.CTkEntry(task_frame, textvariable=self.starting_number, width=100, fg_color = "white", text_color="black")
         self.start_number_entry.grid(row=2, column=4, sticky="w", pady=5)
 
         # Initialize as disabled
