@@ -929,11 +929,11 @@ class UnifiedAirwaySegmentationGUI(ctk.CTk):
         # Input Folder
         ctk.CTkLabel(path_frame, text="Input Folder:").grid(row=0, column=0, padx=(0, 10), pady=5, sticky="w")
         ctk.CTkEntry(path_frame, textvariable=self.input_path, width=500, fg_color = "white", text_color="black").grid(row=0, column=1, padx=(0, 10), sticky="ew")
-        ctk.CTkButton(path_frame, text="Browse", command=self.browse_input_folder).grid(row=0, column=2, padx=(0, 10))
+        ctk.CTkButton(path_frame, text="Browse", command=self.browse_input_folder, font=("Times_New_Roman", 14, "bold")).grid(row=0, column=2, padx=(0, 10))
 
         # File Type Selection
         ctk.CTkLabel(path_frame, text="Starting File Type:").grid(row=2, column=0, padx=(0, 10), pady=5,  sticky="w")
-        file_type_menu = ctk.CTkOptionMenu(path_frame, variable=self.file_type, values=["DICOM", "NIfTI"], command=self.update_file_options)
+        file_type_menu = ctk.CTkOptionMenu(path_frame, variable=self.file_type, values=["DICOM", "NIfTI"], command=self.update_file_options, font=("Times_New_Roman", 14, "bold"))
         file_type_menu.grid(row=2, column=1, sticky="w")
 
         # Task selection frame
