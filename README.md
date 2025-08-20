@@ -30,35 +30,51 @@ Virtual Environment: Recommended to avoid conflicts
 
 2. Install Step-by-Step
 a) Clone the repository
+```bash
 git clone https://github.com/alejandro-matos/AirwaySegmentatorGUI.git
 cd AirwaySegmentatorGUI
+```
 
 b) Create and activate a virtual environment
+```bash
 python -m venv venv
-# On Windows:
+```
+### On Windows:
+```bash
 venv\Scripts\activate
-# On macOS/Linux:
+```
+### On macOS/Linux:
+```bash
 source venv/bin/activate
+```
 
 c) Install PyTorch first
 Important: nnU-Net requires PyTorch to be installed before its own installation.
 Visit pytorch.org to select the command for your system. Examples:
 CPU only:
+```bash
 pip install torch torchvision torchaudio
+```
 
 GPU with CUDA 11.8:
+```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
 
 d) Install nnU-Net v2
+```bash
 pip install nnunetv2
+```
 
 e) Install additional dependencies
+```bash
 pip install SimpleITK nibabel PyQt5 vtk
+```
 
 3. Verify the installation
 
 Run this quick test:
-
+```bash
 python - <<EOF
 import torch, nnunetv2, SimpleITK, nibabel, PyQt5, vtk
 print("PyTorch:", torch.__version__)
@@ -68,18 +84,22 @@ print("nibabel:", nibabel.__version__)
 print("PyQt5:", PyQt5.__version__)
 print("VTK:", vtk.vtkVersion.GetVTKVersion())
 EOF
+```
 
 
 If everything prints without errors, your setup is ready.
 
 4. Launch the GUI
+```bash
 python UpperAirwaySegmentator_GUI.py
+```
 
 2. Automatic Installer Script
 
 You can add this as install_windows.bat (for Windows) or install_linux.sh (for Linux/macOS). It enforces installation order and verifies the setup automatically.
 
-Windows (install_windows.bat)
+### Windows (install_windows.bat)
+```bash
 @echo off
 echo === Setting up UpperAirwaySegmentator GUI ===
 
@@ -116,7 +136,7 @@ echo To run the GUI:
 echo call venv\Scripts\activate
 echo python UpperAirwaySegmentator_GUI.py
 pause
-
+```
 
 ## Troubleshooting
 This section will list the most commonly encountered issues and how to solve them.
