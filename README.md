@@ -21,9 +21,102 @@ If you use UpperAirwaySegmentator for your work, please cite our paper and nnU-N
 There will also soon be a 3D Slicer extension available for this model, which can be found here: (https://github.com/alejandro-matos/SlicerUpperAirwaySegmentator)
 
 ## Getting started with UpperAirwaySegmentator
-This GUI has been tested in Windows, soon to be tested on MacOS and Linux.
+1. System Requirements
 
-<!--tk Will add a tutorial and images here-->
+OS: Windows 10 (tested
+Python: 3.11
+GPU (optional): CUDA 11.8 or higher recommended for faster processing
+Virtual Environment: Recommended to avoid conflicts
+
+2. Install Step-by-Step
+a) Clone the repository
+git clone https://github.com/alejandro-matos/AirwaySegmentatorGUI.git
+cd AirwaySegmentatorGUI
+
+b) Create and activate a virtual environment
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+
+c) Install PyTorch first
+Important: nnU-Net requires PyTorch to be installed before its own installation.
+Visit pytorch.org to select the command for your system. Examples:
+CPU only:
+pip install torch torchvision torchaudio
+
+GPU with CUDA 11.8:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+d) Install nnU-Net v2
+pip install nnunetv2
+
+e) Install additional dependencies
+pip install SimpleITK nibabel PyQt5 vtk
+
+3. Verify the installation
+
+Run this quick test:
+
+python - <<EOF
+import torch, nnunetv2, SimpleITK, nibabel, PyQt5, vtk
+print("PyTorch:", torch.__version__)
+print("nnU-Net:", nnunetv2.__version__)
+print("SimpleITK:", SimpleITK.__version__)
+print("nibabel:", nibabel.__version__)
+print("PyQt5:", PyQt5.__version__)
+print("VTK:", vtk.vtkVersion.GetVTKVersion())
+EOF
+
+
+If everything prints without errors, your setup is ready.
+
+4. Launch the GUI
+python UpperAirwaySegmentator_GUI.py
+
+2. Automatic Installer Script
+
+You can add this as install_windows.bat (for Windows) or install_linux.sh (for Linux/macOS). It enforces installation order and verifies the setup automatically.
+
+Windows (install_windows.bat)
+@echo off
+echo === Setting up UpperAirwaySegmentator GUI ===
+
+REM Create virtual environment
+python -m venv venv
+call venv\Scripts\activate
+
+REM Install PyTorch first (CPU version by default)
+echo Installing PyTorch...
+pip install torch torchvision torchaudio
+
+REM Install nnU-Net v2
+echo Installing nnU-Net v2...
+pip install nnunetv2
+
+REM Install additional dependencies
+echo Installing additional dependencies...
+pip install SimpleITK nibabel PyQt5 vtk
+
+REM Verify installation
+echo Verifying installation...
+python - <<EOF
+import torch, nnunetv2, SimpleITK, nibabel, PyQt5, vtk
+print("PyTorch:", torch.__version__)
+print("nnU-Net:", nnunetv2.__version__)
+print("SimpleITK:", SimpleITK.__version__)
+print("nibabel:", nibabel.__version__)
+print("PyQt5:", PyQt5.__version__)
+print("VTK:", vtk.vtkVersion.GetVTKVersion())
+EOF
+
+echo === Setup complete! ===
+echo To run the GUI: 
+echo call venv\Scripts\activate
+echo python UpperAirwaySegmentator_GUI.py
+pause
+
 
 ## Troubleshooting
 This section will list the most commonly encountered issues and how to solve them.
