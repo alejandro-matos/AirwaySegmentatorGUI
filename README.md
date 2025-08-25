@@ -68,7 +68,7 @@ pip install nnunetv2
 
 e) Install additional dependencies
 ```bash
-pip install SimpleITK nibabel PyQt5 vtk
+pip install SimpleITK nibabel PyQt5 vtk customtkinter natsort
 ```
 
 3. Verify the installation
